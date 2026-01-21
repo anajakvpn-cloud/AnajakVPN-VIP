@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>404 – Lost in the Void</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
+
+  <style>
+    :root {
+      --bg:        #0b0b12;
+      --surface:   #13131d;
+      --text:      #e5e5ff;
+      --dim:       #8c8cb8;
+      --accent:    #7a5fff;
+      --glow:      rgba(122, 95, 255, 0.2);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    .center-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      max-width: 90vw;
+      gap: 1.8rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    .lottie-container {
+      width:  min(380px, 70vw);
+      height: min(380px, 70vw);
+      margin: 0 auto;
+      filter: drop-shadow(0 0 70px var(--glow));
+      pointer-events: none;
+    }
+
+    h1 {
+      font-family: 'Orbitron', monospace;
+      font-size: clamp(7rem, 22vw, 14rem);
+      font-weight: 900;
+      letter-spacing: -0.05em;
+      background: linear-gradient(90deg, #a78bfa, #7a5fff, #c19aff);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      line-height: 0.85;
+      text-shadow: 0 0 50px rgba(122,95,255,0.4);
+    }
+
+    .subtitle {
+      font-size: clamp(1.2rem, 4vw, 1.5rem);
+      color: var(--dim);
+      max-width: 520px;
+      line-height: 1.45;
+      font-weight: 300;
+    }
+
+    .glitch {
+      position: relative;
+      display: inline-block;
+    }
+
+    .glitch::before,
+    .glitch::after {
+      content: attr(data-text);
+      position: absolute;
+      inset: 0;
+      opacity: 0.75;
+      pointer-events: none;
+    }
+
+    .glitch::before {
+      left: 2px;
+      text-shadow: -3px 0 #ff0066;
+      animation: glitch1 4s infinite steps(1);
+      clip-path: inset(0 0 0 0);
+    }
+
+    .glitch::after {
+      left: -2px;
+      text-shadow: 3px 0 #00eaff;
+      animation: glitch2 3.2s infinite steps(2);
+      clip-path: inset(0 0 0 0);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.9rem;
+      margin-top: 1.5rem;
+      padding: 1rem 2.4rem;
+      font-size: 1.15rem;
+      font-weight: 500;
+      color: white;
+      background: var(--accent);
+      border: none;
+      border-radius: 14px;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 0 4px rgba(122,95,255,0.25);
+    }
+
+    .btn:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 14px 48px rgba(122,95,255,0.5);
+      background: #8c70ff;
+    }
+
+    .stars-bg {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: 
+        radial-gradient(circle at 20% 40%, rgba(160,140,255,0.08) 0%, transparent 30%),
+        radial-gradient(circle at 80% 70%, rgba(190,130,255,0.06) 0%, transparent 35%);
+    }
+
+    @keyframes glitch1 {
+      0%, 100% { clip-path: inset(0 0 0 0); }
+      5%  { clip-path: inset(2% 0 8% 0); }
+      10% { clip-path: inset(6% 0 4% 0); }
+      /* add more steps if you want stronger glitch */
+    }
+
+    @keyframes glitch2 {
+      0%, 100% { clip-path: inset(0 0 0 0); }
+      8%  { clip-path: inset(4% 0 6% 0); }
+      12% { clip-path: inset(1% 0 9% 0); }
+    }
+
+    @media (max-height: 680px) {
+      .lottie-container { width: 240px; height: 240px; }
+      h1 { font-size: 6rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="stars-bg"></div>
+
+<div class="center-container">
+  <div class="lottie-container" id="lottie-animation"></div>
+
+  <h1 class="glitch" data-text="404">404</h1>
+
+  <p class="subtitle">
+    The page you seek drifted into the digital abyss.<br>
+    Perhaps it's wandering among forgotten commits and parallel threads…
+  </p>
+
+  <a href="/" class="btn">← Back to Reality</a>
+</div>
+
+<script>
+// Dark cyber / lost astronaut / glitchy void style – free from LottieFiles community
+const animationUrl = "https://assets1.lottiefiles.com/packages/lf20_kkflmtur.json"; 
+// Alternative good dark ones:
+// "https://assets4.lottiefiles.com/packages/lf20_8oeigw.json"   ← neon 404
+// Search "404 dark glitch" or "lost astronaut dark" on https://lottiefiles.com
+
+lottie.loadAnimation({
+  container: document.getElementById("lottie-animation"),
+  renderer: "svg",
+  loop: true,
+  autoplay: true,
+  path: animationUrl
+});
+
+// Gentle float animation for extra atmosphere
+gsap.to(".lottie-container", {
+  y: 30,
+  duration: 4.2,
+  repeat: -1,
+  yoyo: true,
+  ease: "sine.inOut"
+});
+</script>
+
+<!-- GSAP for smooth floating (optional – remove if you don't want it) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+
+</body>
+</html>
