@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <title>របៀបចូលប្រើ - AnajakVIP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+    <meta name="theme-color" content="#000000">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+Khmer:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+
+    <style>
+        :root {
+            --purple-main: #a855f7;
+            --purple-dark: #7e22ce;
+        }
+        body {
+            font-family: 'Noto Sans Khmer', 'Inter', sans-serif;
+            background: linear-gradient(to bottom, #000, #0f001a);
+            color: #f3f4f6;
+            min-height: 100vh;
+            padding-bottom: 140px;
+            margin: 0;
+        }
+        .header {
+            background: rgba(0,0,0,0.88);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(168,85,247,0.18);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 420px;
+            aspect-ratio: 9 / 16;
+            margin: 1.5rem auto 2.5rem;
+            border-radius: 1.5rem;
+            overflow: hidden;
+            background: #111;
+            box-shadow: 0 30px 70px -20px rgba(168,85,247,0.28);
+        }
+        .poster-bg {
+            position: absolute;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+            filter: blur(14px) brightness(0.5);
+            transform: scale(1.08);
+            transition: all 0.6s ease;
+            z-index: 1;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: relative;
+            z-index: 2;
+            transition: filter 0.5s ease, opacity 0.5s ease;
+        }
+        /* Blur + darken video when NOT playing */
+        .not-playing video {
+            filter: blur(8px) brightness(0.65);
+            opacity: 0.92;
+        }
+        .controls {
+            position: absolute;
+            bottom: 18px;
+            left: 16px;
+            right: 16px;
+            background: rgba(0,0,0,0.78);
+            backdrop-filter: blur(12px);
+            border-radius: 16px;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: opacity 0.4s ease;
+            z-index: 20;
+            pointer-events: auto;
+        }
+        .small-play-btn,
+        .rewind-btn,
+        .forward-btn {
+            width: 50px;
+            height: 50px;
+            background: rgba(168,85,247,0.35);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            transition: all 0.25s;
+            border: none;
+            cursor: pointer;
+        }
+        .small-play-btn:hover,
+        .rewind-btn:hover,
+        .forward-btn:hover {
+            background: var(--purple-main);
+        }
+        .rewind-btn i, .forward-btn i { font-size: 1.4rem; }
+        .progress-container {
+            flex: 1;
+            height: 8px;
+            background: rgba(255,255,255,0.18);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .progress {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(to right, var(--purple-main), #c084fc);
+            border-radius: 4px;
+            transition: width 0.18s ease-out;
+        }
+        .time {
+            font-size: 0.95rem;
+            color: #d1d5db;
+            min-width: 100px;
+            text-align: right;
+        }
+        .step-card {
+            background: rgba(30,30,50,0.45);
+            border: 1px solid rgba(168,85,247,0.18);
+            border-radius: 1rem;
+            padding: 1.25rem 1.5rem;
+            backdrop-filter: blur(8px);
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="max-w-[440px] mx-auto px-5 py-4 flex items-center">
+            <button onclick="window.location.href='index.html'"
+                    class="text-purple-400 hover:text-purple-300 flex items-center gap-3 text-base font-medium">
+                <i class="fas fa-arrow-left text-xl"></i>
+                <span>ត្រឡប់ទៅផ្ទះ</span>
+            </button>
+            <h1 class="flex-1 text-center text-lg font-semibold text-purple-200">របៀបចូលប្រើ</h1>
+        </div>
+    </header>
+
+    <main class="max-w-[440px] mx-auto px-5 pt-6 pb-10">
+
+        <div class="text-center mb-8">
+            <h2 class="text-2xl sm:text-3xl font-bold text-purple-400 mb-3">មើលវីដេអូបង្ហាញ</h2>
+            <p class="text-gray-400 text-base">ជំហានងាយៗសម្រាប់ទូរស័ព្ទ</p>
+        </div>
+
+        <div class="video-wrapper not-playing" id="videoWrapper">
+            <div class="poster-bg" id="posterBg"
+                 style="background-image: url('https://via.placeholder.com/420x750/111/aaa?text=Video+Thumbnail');">
+            </div>
+
+            <video id="tutorialVideo" playsinline preload="metadata">
+                <source src="howto.mp4" type="video/mp4">
+                កម្មវិធីរុករករបស់អ្នកមិនគាំទ្រវីដេអូទេ។
+            </video>
+
+            <div class="controls" id="controls">
+                <button id="rewindBtn" class="rewind-btn">
+                    <i class="fas fa-backward"></i>
+                </button>
+                <button id="playPauseBtn" class="small-play-btn">
+                    <i class="fas fa-play"></i>
+                </button>
+                <button id="forwardBtn" class="forward-btn">
+                    <i class="fas fa-forward"></i>
+                </button>
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress" id="progressFill"></div>
+                </div>
+                <span id="timeDisplay" class="time">0:00 / 0:00</span>
+            </div>
+        </div>
+
+        <div class="space-y-5 mt-10">
+            <div class="step-card flex items-start gap-4">
+                <div class="w-11 h-11 rounded-full bg-purple-900/60 flex items-center justify-center text-lg font-bold text-purple-200">១</div>
+                <p class="leading-relaxed pt-1">បើកកម្មវិធី V2Ray ឬ Shadowrocket / V2Box / Nekoray</p>
+            </div>
+            <div class="step-card flex items-start gap-4">
+                <div class="w-11 h-11 rounded-full bg-purple-900/60 flex items-center justify-center text-lg font-bold text-purple-200">២</div>
+                <p class="leading-relaxed pt-1">ចុច <strong>Import</strong> ឬ <strong>+ Add config</strong></p>
+            </div>
+            <div class="step-card flex items-start gap-4">
+                <div class="w-11 h-11 rounded-full bg-purple-900/60 flex items-center justify-center text-lg font-bold text-purple-200">៣</div>
+                <p class="leading-relaxed pt-1">ចម្លង Server / Config ពីក្នុង AnajakVIP រួច Paste ចូលទៅក្នុងកម្មវិធី</p>
+            </div>
+            <div class="step-card flex items-start gap-4">
+                <div class="w-11 h-11 rounded-full bg-purple-900/60 flex items-center justify-center text-lg font-bold text-purple-200">៤</div>
+                <p class="leading-relaxed pt-1">ចុច <strong>Connect</strong> ឬ <strong>Start</strong> → រួចរាល់!</p>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // Elements
+        const wrapper       = document.getElementById('videoWrapper');
+        const video         = document.getElementById('tutorialVideo');
+        const playPauseBtn  = document.getElementById('playPauseBtn');
+        const rewindBtn     = document.getElementById('rewindBtn');
+        const forwardBtn    = document.getElementById('forwardBtn');
+        const progressCont  = document.getElementById('progressContainer');
+        const progressFill  = document.getElementById('progressFill');
+        const timeDisplay   = document.getElementById('timeDisplay');
+        const controls      = document.getElementById('controls');
+
+        // Helpers
+        function formatTime(seconds) {
+            if (!seconds || isNaN(seconds)) return '0:00';
+            const min = Math.floor(seconds / 60);
+            const sec = Math.floor(seconds % 60);
+            return `${min}:${sec.toString().padStart(2, '0')}`;
+        }
+
+        function updatePlayButtonState() {
+            if (video.paused || video.ended) {
+                playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+                wrapper.classList.add('not-playing');
+            } else {
+                playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                wrapper.classList.remove('not-playing');
+            }
+        }
+
+        // Auto-hide controls
+        let hideTimeout = null;
+        const HIDE_DELAY = 3200;
+
+        function showControls() {
+            controls.style.opacity = '1';
+            clearTimeout(hideTimeout);
+            if (!video.paused && !video.ended) {
+                hideTimeout = setTimeout(() => {
+                    if (!video.paused && !video.ended) {
+                        controls.style.opacity = '0';
+                    }
+                }, HIDE_DELAY);
+            }
+        }
+
+        async function togglePlay() {
+            try {
+                if (video.paused || video.ended) {
+                    video.muted = false;
+                    await video.play();
+                } else {
+                    video.pause();
+                }
+                updatePlayButtonState();
+                showControls();
+            } catch (err) {
+                if (err.name === "NotAllowedError") {
+                    video.muted = true;
+                    try {
+                        await video.play();
+                        updatePlayButtonState();
+                        showControls();
+                    } catch (e2) {}
+                }
+            }
+        }
+
+        // ─── Event Listeners ──────────────────────────────────────
+
+        wrapper.addEventListener('click', (e) => {
+            if (e.target.closest('#controls')) return;
+            togglePlay();
+        });
+
+        playPauseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            togglePlay();
+        });
+
+        rewindBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            video.currentTime = Math.max(0, video.currentTime - 2);
+            showControls();
+        });
+
+        forwardBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            video.currentTime = Math.min(video.duration || Infinity, video.currentTime + 2);
+            showControls();
+        });
+
+        progressCont.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const rect = progressCont.getBoundingClientRect();
+            const pos = (e.clientX - rect.left) / rect.width;
+            video.currentTime = pos * (video.duration || 0);
+            showControls();
+        });
+
+        video.addEventListener('timeupdate', () => {
+            if (!video.duration || isNaN(video.duration)) return;
+            const percent = (video.currentTime / video.duration) * 100;
+            progressFill.style.width = percent + '%';
+            timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
+
+            if (!video.paused && !video.ended) {
+                showControls();
+            }
+        });
+
+        video.addEventListener('play',     updatePlayButtonState);
+        video.addEventListener('pause',    updatePlayButtonState);
+        video.addEventListener('ended',    updatePlayButtonState);
+
+        // Initial state
+        video.muted = true;
+        updatePlayButtonState();           // adds .not-playing initially
+        controls.style.opacity = '1';
+    </script>
+</body>
+</html>
