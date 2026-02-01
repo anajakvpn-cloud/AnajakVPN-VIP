@@ -1,6 +1,6 @@
 // scripts.js - AnajakVPN Client Frontend    
 // Last major update: February 2026    
-// Updated: February 2026 - Strict real-domain-only logic + avoid wrong primary domain in config
+// Updated: Strict real-domain-only logic – no guessing primary when secondary was created
 
 const WORKER_URL = "https://anajakvip.panda-hshark.workers.dev";    
 
@@ -28,7 +28,7 @@ let currentUser = null;
 let hasSeenWarning = false;    
 let readNotifications = JSON.parse(localStorage.getItem("readNotifications") || "[]");    
 
-// countryCode (lowercase) → { domain: full string, zone: mainDomain, lastPrewarm: timestamp, source: "worker_response"|"fallback" }
+// countryCode → { domain: full string, zone: mainDomain, lastPrewarm: timestamp, source: "worker_direct"|"fallback" }
 let subdomainMap = {};    
 try {
     const saved = localStorage.getItem('subdomainMap');
@@ -228,10 +228,13 @@ function hideGlobalLoading() {
 
 // ================== PREWARM SUBDOMAINS – strict real-only version ==================
 async function prewarmUserSubdomains(code, expiry_date) {
-  if (!code || !expiry_date) return false;
+  if (!code || !expiry_date) {
+    console.warn("prewarm called without code or expiry");
+    return false;
+  }
 
   showGlobalLoading();
-  showToast('កំពុងរៀបចំ subdomains សម្រាប់អ្នក... សូមរង់ចាំបន្តិច');
+  showToast('កំពុងរៀបចំ subdomains សម្រាប់អ្នក...');
 
   try {
     const res = await fetch(`${WORKER_URL}/prewarm-subdomains`, {
@@ -243,60 +246,70 @@ async function prewarmUserSubdomains(code, expiry_date) {
       })
     });
 
-    if (!res.ok) {
-      console.warn('Prewarm failed:', res.status);
-      showToast('មានបញ្ហាក្នុងការរៀបចំ subdomain');
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error("Invalid JSON from prewarm:", text);
+      showToast("កំហុសពី server – សូម refresh ទំព័រ");
       return false;
     }
 
-    const data = await res.json();
-
-    if (!data.success) {
-      showToast(data.error || 'មានបញ្ហា');
+    if (!res.ok || !data.success) {
+      console.warn("Prewarm failed:", res.status, data);
+      showToast(data?.error || 'មានបញ្ហា server');
+      // Clear wrong/old cache on failure
+      subdomainMap = {};
+      localStorage.removeItem('subdomainMap');
       return false;
     }
 
     // Collect ONLY real domains returned by worker
-    const realDomains = [
+    const domains = [
       ...(data.created || []),
       ...(data.updated || []),
       ...(data.skipped || [])
-    ].filter(d => typeof d === 'string' && d.includes('.') && d.length > 15);
+    ].filter(d => typeof d === 'string' && d.includes('.') && d.length > 20);
 
-    let updatedCount = 0;
+    console.log("Worker returned domains:", domains);
 
-    if (realDomains.length > 0) {
-      realDomains.forEach(fullDomain => {
-        const cc = fullDomain.split('.')[0].slice(0, 2).toLowerCase();
-        if (cc.length !== 2) return;
-
-        const zoneObj = DNS_ZONES.find(z => fullDomain.endsWith(`.${z.mainDomain}`));
-        const zoneName = zoneObj ? zoneObj.mainDomain : 'unknown';
-
-        subdomainMap[cc] = {
-          domain: fullDomain,
-          zone: zoneName,
-          lastPrewarm: Date.now(),
-          source: 'worker_response'
-        };
-
-        updatedCount++;
-      });
-
-      console.log(`Updated ${updatedCount} real subdomains from worker response`);
-    } else {
-      console.warn('Worker returned no usable domains → clearing cache for safety');
-      showToast('មិនអាចទទួលបាន subdomain ពី server – សូម refresh ទំព័រ');
-      subdomainMap = {}; // prevent using wrong/old values
+    if (domains.length === 0) {
+      console.warn("No domains returned from prewarm – clearing map");
+      subdomainMap = {};
+      localStorage.removeItem('subdomainMap');
+      showToast("មិនមាន subdomain ថ្មី – ប្រើ IP ជំនួស");
+      return false;
     }
 
+    // Update map ONLY with real returned domains
+    domains.forEach(fullDomain => {
+      const cc = fullDomain.split('.')[0].slice(0, 2).toLowerCase();
+      if (cc.length !== 2) return;
+
+      const zoneObj = DNS_ZONES.find(z => fullDomain.endsWith('.' + z.mainDomain));
+      const zoneName = zoneObj ? zoneObj.mainDomain : 'unknown';
+
+      subdomainMap[cc] = {
+        domain: fullDomain,
+        zone: zoneName,
+        lastPrewarm: Date.now(),
+        source: 'worker_direct'
+      };
+    });
+
     localStorage.setItem('subdomainMap', JSON.stringify(subdomainMap));
-    showToast('បានរៀបចំ server រួចរាល់ ✓');
-    return realDomains.length > 0;
+    console.log("Updated subdomainMap:", subdomainMap);
+
+    showToast('បានរៀបចំ subdomain រួចរាល់ ✓');
+    return true;
 
   } catch (err) {
-    console.error('Prewarm error:', err);
-    showToast('ការតភ្ជាប់មានបញ្ហា');
+    console.error("Prewarm exception:", err);
+    showToast('ការតភ្ជាប់បរាជ័យ');
+    // Safety clear on exception
+    subdomainMap = {};
+    localStorage.removeItem('subdomainMap');
     return false;
   } finally {
     hideGlobalLoading();
@@ -501,12 +514,14 @@ async function replacePlaceholdersInConfig(text, serverItem) {
 
     let replacement = serverItem.ip || '';
 
+    // Priority 1: use cached real subdomain if it exists
     if (subdomainMap[country]?.domain && subdomainMap[country].domain.includes('.')) {
         replacement = subdomainMap[country].domain;
-        console.log(`[Using confirmed subdomain] ${country} → ${replacement} (from ${subdomainMap[country].source})`);
-    } else {
-        console.warn(`No confirmed subdomain for ${country} → fallback to IP: ${replacement}`);
-        // Intentionally NOT reconstructing – better wrong IP than wrong domain
+        console.log(`[Using REAL subdomain] ${country} → ${replacement} (source: ${subdomainMap[country].source || 'cache'})`);
+    }
+    // Priority 2: fallback to IP (never guess domain)
+    else {
+        console.warn(`[No valid subdomain for ${country}] → using IP: ${replacement}`);
     }
 
     return config.replace(/random-domain/gi, replacement);    
@@ -614,7 +629,7 @@ function checkLoginCode() {
         errorEl.classList.add('hidden');    
         showMainHeaderElements();    
 
-        // Reset subdomain map on new login
+        // Reset subdomain map on new login – prevent old wrong domain
         subdomainMap = {};    
         localStorage.removeItem('subdomainMap');
     } else {    
