@@ -1,22 +1,8 @@
 // scripts.js - AnajakVPN Client Frontend    
-// Last major update: February 2026    
-// Updated: Strict real-domain-only logic – no guessing primary when secondary was created
-
+// Last major update: January 2026    
+// Updated: January 15, 2026 - Fixed subdomain replacement instead of IP when copying config  
 const WORKER_URL = "https://anajakvip.panda-hshark.workers.dev";    
-
-// Known zones in preference order (0 = most preferred)
-const DNS_ZONES = [
-  {
-    mainDomain: "anajakvpnvip.filegear-sg.me",
-    priority: 1,
-    description: "Primary"
-  },
-  {
-    mainDomain: "vvipanajak.filegear-sg.me",
-    priority: 2,
-    description: "Secondary / fallback"
-  }
-];
+const MAIN_DOMAIN = "vvipanajak.filegear-sg.me";  // Used to reconstruct expected subdomains
 
 let validCodes = [];    
 let allServers = [];    
@@ -28,7 +14,7 @@ let currentUser = null;
 let hasSeenWarning = false;    
 let readNotifications = JSON.parse(localStorage.getItem("readNotifications") || "[]");    
 
-// countryCode → { domain: full string, zone: mainDomain, lastPrewarm: timestamp, source: "worker_direct"|"fallback" }
+// Subdomain cache: countryCode (lowercase) → full subdomain
 let subdomainMap = {};    
 try {
     const saved = localStorage.getItem('subdomainMap');
@@ -81,7 +67,7 @@ function setRandomUserAvatar() {
     avatarEl.className = `w-12 h-12 bg-gradient-to-br ${savedColor} rounded-full flex items-center justify-center shadow-lg text-2xl`;    
 }    
 
-// ================== DEVTOOLS DETECTION ==================    
+// ================== DEVTOOLS DETECTION (2026 hardened version) ==================    
 const DevToolsDetector = (function() {    
     let isOpen = false;    
     let detectionScore = 0;    
@@ -139,6 +125,7 @@ const DevToolsDetector = (function() {
 
         if (isOpen && !previouslyOpen && !warningShown) {    
             warningShown = true;    
+            // Silent protection - no UI warning    
         }    
     }    
 
@@ -196,7 +183,7 @@ async function updateLastUpdateDate() {
     }    
 }    
 
-// ================== HEADER VISIBILITY ==================    
+// ================== HEADER VISIBILITY HELPERS ==================    
 function hideMainHeaderElements() {    
     const container = document.querySelector('#app-content .container');    
     if (!container) return;    
@@ -215,7 +202,7 @@ function showMainHeaderElements() {
     container.querySelector('.text-center.mb-8')?.classList.remove('hidden');    
 }    
 
-// ================== GLOBAL LOADING ==================
+// ================== GLOBAL LOADING OVERLAY ==================
 function showGlobalLoading() {
   const overlay = document.getElementById('global-loading-overlay');
   if (overlay) overlay.classList.remove('hidden');
@@ -226,15 +213,9 @@ function hideGlobalLoading() {
   if (overlay) overlay.classList.add('hidden');
 }
 
-// ================== PREWARM SUBDOMAINS – strict real-only version ==================
+// ================== PREWARM ALL SUBDOMAINS ==================
 async function prewarmUserSubdomains(code, expiry_date) {
-  if (!code || !expiry_date) {
-    console.warn("prewarm called without code or expiry");
-    return false;
-  }
-
-  showGlobalLoading();
-  showToast('កំពុងរៀបចំ subdomains សម្រាប់អ្នក...');
+  if (!code || !expiry_date) return false;
 
   try {
     const res = await fetch(`${WORKER_URL}/prewarm-subdomains`, {
@@ -246,73 +227,49 @@ async function prewarmUserSubdomains(code, expiry_date) {
       })
     });
 
-    const text = await res.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      console.error("Invalid JSON from prewarm:", text);
-      showToast("កំហុសពី server – សូម refresh ទំព័រ");
+    if (!res.ok) {
+      console.warn('Prewarm request failed:', res.status);
       return false;
     }
 
-    if (!res.ok || !data.success) {
-      console.warn("Prewarm failed:", res.status, data);
-      showToast(data?.error || 'មានបញ្ហា server');
-      // Clear wrong/old cache on failure
-      subdomainMap = {};
-      localStorage.removeItem('subdomainMap');
-      return false;
+    const data = await res.json();
+    console.log('Prewarm result:', data);
+
+    // If worker returns list of domains (recommended future improvement)
+    if (data.success && Array.isArray(data.domains)) {
+      data.domains.forEach(fullDomain => {
+        const cc = fullDomain.split('.')[0].slice(0, 2).toLowerCase();
+        if (cc.length === 2) {
+          subdomainMap[cc] = fullDomain;
+        }
+      });
+    } 
+    // Fallback: reconstruct domains ourselves from known countries
+    else if (data.success) {
+      const cleanCode = code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const yyyymmdd = expiry_date.replace(/-/g, '').slice(0, 8);
+
+      const countries = [...new Set(
+        allServers.map(s => 
+          String(s.countrycode || s.country || 'kh')
+            .trim()
+            .toLowerCase()
+        ).filter(Boolean)
+      )];
+
+      countries.forEach(cc => {
+        const domain = `${cc}${cleanCode}${yyyymmdd}.${MAIN_DOMAIN}`;
+        subdomainMap[cc] = domain;
+      });
     }
 
-    // Collect ONLY real domains returned by worker
-    const domains = [
-      ...(data.created || []),
-      ...(data.updated || []),
-      ...(data.skipped || [])
-    ].filter(d => typeof d === 'string' && d.includes('.') && d.length > 20);
-
-    console.log("Worker returned domains:", domains);
-
-    if (domains.length === 0) {
-      console.warn("No domains returned from prewarm – clearing map");
-      subdomainMap = {};
-      localStorage.removeItem('subdomainMap');
-      showToast("មិនមាន subdomain ថ្មី – ប្រើ IP ជំនួស");
-      return false;
-    }
-
-    // Update map ONLY with real returned domains
-    domains.forEach(fullDomain => {
-      const cc = fullDomain.split('.')[0].slice(0, 2).toLowerCase();
-      if (cc.length !== 2) return;
-
-      const zoneObj = DNS_ZONES.find(z => fullDomain.endsWith('.' + z.mainDomain));
-      const zoneName = zoneObj ? zoneObj.mainDomain : 'unknown';
-
-      subdomainMap[cc] = {
-        domain: fullDomain,
-        zone: zoneName,
-        lastPrewarm: Date.now(),
-        source: 'worker_direct'
-      };
-    });
-
+    // Persist to localStorage
     localStorage.setItem('subdomainMap', JSON.stringify(subdomainMap));
-    console.log("Updated subdomainMap:", subdomainMap);
 
-    showToast('បានរៀបចំ subdomain រួចរាល់ ✓');
-    return true;
-
+    return data.success === true;
   } catch (err) {
-    console.error("Prewarm exception:", err);
-    showToast('ការតភ្ជាប់បរាជ័យ');
-    // Safety clear on exception
-    subdomainMap = {};
-    localStorage.removeItem('subdomainMap');
+    console.error('Prewarm error:', err);
     return false;
-  } finally {
-    hideGlobalLoading();
   }
 }
 
@@ -391,7 +348,7 @@ async function autoPingServer(ip, resultElement) {
     showPingResult(resultElement, ms);
 }
 
-// ================== IP CHECKER ==================    
+// ================== IMPROVED IP CHECKER ==================    
 function showMyIP() {    
     const modal = document.getElementById('ip-modal');    
     const loading = document.getElementById('ip-loading');    
@@ -500,54 +457,30 @@ function closeIPModal() {
     document.getElementById('ip-modal').classList.add('hidden');    
 }    
 
-// ================== CONFIG PLACEHOLDER REPLACEMENT – strict version ==================    
-async function replacePlaceholdersInConfig(text, serverItem) {
-    let config = text;
+// ================== CONFIG PLACEHOLDER REPLACEMENT (FIXED) ==================    
+async function replacePlaceholdersInConfig(text, serverItem) {    
+    let config = text;    
 
-    // Normalize all random-domain variations
-    config = config.replace(/r+andom-domain|andom-domain+|(random-domain)+/gi, 'random-domain');
+    config = config.replace(/r+andom-domain|andom-domain+|(random-domain)+/gi, 'random-domain');    
 
-    if (!/random-domain/gi.test(config)) {
-        return config;
-    }
+    const hasRandomDomain = /random-domain/gi.test(config);    
+    if (!hasRandomDomain) return config;    
+
+    let replacement = serverItem.ip || '';
 
     const country = String(serverItem.countrycode || serverItem.country || 'kh')
         .trim()
         .toLowerCase();
 
-    let replacement = serverItem.ip || '';
-
-    // 1. Use real confirmed subdomain if we have it
-    if (subdomainMap[country]?.domain && subdomainMap[country].domain.includes('.')) {
-        replacement = subdomainMap[country].domain;
-        console.log(`[Using REAL subdomain] ${country} → ${replacement}`);
-    }
-    // 2. If no real subdomain → reconstruct using PRIMARY domain (never show IP)
-    else if (currentUser?.code && currentUser?.expiry) {
-        const cleanCode = currentUser.code
-            .trim()
-            .toUpperCase()
-            .replace(/[^A-Z0-9]/g, '');
-
-        const yyyymmdd = currentUser.expiry
-            .replace(/-/g, '')
-            .slice(0, 8);
-
-        if (cleanCode && yyyymmdd) {
-            replacement = `${country}${cleanCode}${yyyymmdd}.${DNS_ZONES[0].mainDomain}`;
-            console.log(`[Fallback to primary domain] ${country} → ${replacement}`);
-        } else {
-            console.warn(`Cannot reconstruct domain for ${country} — missing code/expiry`);
-        }
-    }
-    // 3. Absolute last resort — still prefer domain over IP if possible
-    else {
-        replacement = `${country}fallback.${DNS_ZONES[0].mainDomain}`;
-        console.warn(`Using emergency fallback domain for ${country}`);
+    if (subdomainMap[country]) {
+        replacement = subdomainMap[country];
+        console.log(`[Subdomain used] ${country} → ${replacement}`);
+    } else {
+        console.warn(`[No subdomain] ${country} → falling back to IP: ${replacement}`);
     }
 
-    return config.replace(/random-domain/gi, replacement);
-}
+    return config.replace(/random-domain/gi, replacement);    
+}    
 
 // ================== MAIN DATA LOADER ==================    
 async function loadData() {    
@@ -578,6 +511,12 @@ async function loadData() {
 
         const text = await res.text();    
         const data = JSON.parse(text);    
+
+        // Reload subdomain map on every data load (in case cleared)
+        try {
+            const saved = localStorage.getItem('subdomainMap');
+            if (saved) subdomainMap = JSON.parse(saved);
+        } catch {}
 
         validCodes = data.validCodes || [];    
         allServers = data.allServers || [];    
@@ -651,9 +590,7 @@ function checkLoginCode() {
         errorEl.classList.add('hidden');    
         showMainHeaderElements();    
 
-        // Reset subdomain map on new login – prevent old wrong domain
         subdomainMap = {};    
-        localStorage.removeItem('subdomainMap');
     } else {    
         errorEl.textContent = 'កូដមិនត្រឹមត្រូវ ឬផុតកំណត់ហើយ!';    
         errorEl.classList.remove('hidden');    
@@ -741,7 +678,24 @@ async function closeWarningModal() {
         return;
     }
 
-    await prewarmUserSubdomains(currentUser.code, currentUser.expiry);
+    showGlobalLoading();
+    showToast('កំពុងរៀបចំ Server សម្រាប់អ្នក... សូមរង់ចាំបន្តិច');
+
+    try {
+        const success = await prewarmUserSubdomains(currentUser.code, currentUser.expiry);
+
+        hideGlobalLoading();
+
+        if (success) {
+            showToast('បានរៀបចំ server រួចរាល់ ✓');
+        } else {
+            showToast('មានបញ្ហាបន្តិចក្នុងការរៀបចំ Server');
+        }
+    } catch (err) {
+        hideGlobalLoading();
+        console.error('Prewarm failed:', err);
+        showToast('ការរៀបចំ Server បរាជ័យ – សូម refresh ទំព័រ');
+    }
 }    
 
 // ================== NAVIGATION ==================    
@@ -813,7 +767,7 @@ function updateNotificationBadge() {
     }    
 }    
 
-// ================== SUBSCRIPTION URL ==================
+// ================== SUBSCRIPTION URL GENERATION ==================
 function normalizeUserCode(x) {
   let s = String(x || '').trim();
   if (s.startsWith('@')) s = s.slice(1);
@@ -896,6 +850,11 @@ function renderMainMenu() {
         }
     });
 
+    // ---------------------------
+    // ICON SUPPORT:
+    // - mainMenuItems.icon can be URL (image) OR FontAwesome class
+    // - legacy mainMenuItems.iconUrl is still supported
+    // ---------------------------
     function isLikelyUrl(s) {
         s = String(s || '').trim();
         return /^https?:\/\//i.test(s) || /^data:image\//i.test(s);
@@ -975,6 +934,11 @@ function renderMainMenu() {
               `
             : '';
 
+        // ---------- ICON RENDER (UPDATED) ----------
+        // Priority:
+        // 1) item.icon is URL => image
+        // 2) item.iconUrl (legacy) => image
+        // 3) item.icon is FontAwesome class => <i>
         const iconValue = (item.icon ?? '').toString().trim();
         const iconUrl = isLikelyUrl(iconValue)
             ? iconValue
@@ -1003,6 +967,7 @@ function renderMainMenu() {
                 </div>
             `;
         }
+        // ---------- END ICON RENDER ----------
 
         const serversCount = categoryKey ? (categoryServers[categoryKey] || 0) : 0;
         const showSubBtn = !!categoryKey && serversCount > 0;
@@ -1254,7 +1219,7 @@ async function renderServerList(list) {
     }    
 }    
 
-// ================== SEARCH ==================    
+// ================== SEARCH FUNCTIONALITY ==================    
 document.getElementById('search-input')?.addEventListener('input', e => {    
     const query = e.target.value.trim().toLowerCase();    
 
@@ -1312,7 +1277,7 @@ function showToast(message = 'បានចម្លង') {
     }, 2000);
 }
     
-// ================== COPY ==================    
+// ================== COPY UTILITY ==================    
 function copyText(text) {
     navigator.clipboard.writeText(text).then(() => {
         showToast('បានចម្លង config រួចរាល់');
@@ -1322,7 +1287,7 @@ function copyText(text) {
     });
 }
 
-// ================== APP INIT ==================    
+// ================== APP INITIALIZATION ==================    
 document.addEventListener('DOMContentLoaded', () => {    
     document.getElementById('logout-btn')?.addEventListener('click', () => logout(false));    
     loadData();    
@@ -1335,5 +1300,5 @@ document.addEventListener('DOMContentLoaded', () => {
 });    
 
 function initApp() {    
-    console.log("AnajakVPN client initialized – strict real-domain mode active");    
+    console.log("AnajakVPN client initialized - with fixed subdomain support");    
 }
