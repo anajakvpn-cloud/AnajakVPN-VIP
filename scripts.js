@@ -501,12 +501,15 @@ function closeIPModal() {
 }    
 
 // ================== CONFIG PLACEHOLDER REPLACEMENT – strict version ==================    
-async function replacePlaceholdersInConfig(text, serverItem) {    
-    let config = text;    
+async function replacePlaceholdersInConfig(text, serverItem) {
+    let config = text;
 
-    config = config.replace(/r+andom-domain|andom-domain+|(random-domain)+/gi, 'random-domain');    
+    // Normalize all random-domain variations
+    config = config.replace(/r+andom-domain|andom-domain+|(random-domain)+/gi, 'random-domain');
 
-    if (!/random-domain/gi.test(config)) return config;    
+    if (!/random-domain/gi.test(config)) {
+        return config;
+    }
 
     const country = String(serverItem.countrycode || serverItem.country || 'kh')
         .trim()
@@ -514,18 +517,37 @@ async function replacePlaceholdersInConfig(text, serverItem) {
 
     let replacement = serverItem.ip || '';
 
-    // Priority 1: use cached real subdomain if it exists
+    // 1. Use real confirmed subdomain if we have it
     if (subdomainMap[country]?.domain && subdomainMap[country].domain.includes('.')) {
         replacement = subdomainMap[country].domain;
-        console.log(`[Using REAL subdomain] ${country} → ${replacement} (source: ${subdomainMap[country].source || 'cache'})`);
+        console.log(`[Using REAL subdomain] ${country} → ${replacement}`);
     }
-    // Priority 2: fallback to IP (never guess domain)
+    // 2. If no real subdomain → reconstruct using PRIMARY domain (never show IP)
+    else if (currentUser?.code && currentUser?.expiry) {
+        const cleanCode = currentUser.code
+            .trim()
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, '');
+
+        const yyyymmdd = currentUser.expiry
+            .replace(/-/g, '')
+            .slice(0, 8);
+
+        if (cleanCode && yyyymmdd) {
+            replacement = `${country}${cleanCode}${yyyymmdd}.${DNS_ZONES[0].mainDomain}`;
+            console.log(`[Fallback to primary domain] ${country} → ${replacement}`);
+        } else {
+            console.warn(`Cannot reconstruct domain for ${country} — missing code/expiry`);
+        }
+    }
+    // 3. Absolute last resort — still prefer domain over IP if possible
     else {
-        console.warn(`[No valid subdomain for ${country}] → using IP: ${replacement}`);
+        replacement = `${country}fallback.${DNS_ZONES[0].mainDomain}`;
+        console.warn(`Using emergency fallback domain for ${country}`);
     }
 
-    return config.replace(/random-domain/gi, replacement);    
-}    
+    return config.replace(/random-domain/gi, replacement);
+}
 
 // ================== MAIN DATA LOADER ==================    
 async function loadData() {    
