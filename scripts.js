@@ -1,8 +1,23 @@
 // scripts.js - AnajakVPN Client Frontend    
-// Last major update: January 2026    
-// Updated: January 15, 2026 - Fixed subdomain replacement instead of IP when copying config  
+// Last major update: February 2026    
+// Updated: February 2026 - Multi-zone DNS support + avoid duplicate subdomains across zones
+
 const WORKER_URL = "https://anajakvip.panda-hshark.workers.dev";    
-const MAIN_DOMAIN = "anajakvpn.filegear-sg.me";  // Used to reconstruct expected subdomains
+
+// Known zones in order of preference (primary first)
+const DNS_ZONES = [
+  {
+    mainDomain: "anajakvpnvip.filegear-sg.me",
+    priority: 1,
+    description: "Primary"
+  },
+  {
+    mainDomain: "vvipanajak.filegear-sg.me",
+    priority: 2,
+    description: "Secondary / fallback"
+  }
+  // Add more zones here in the future if needed
+];
 
 let validCodes = [];    
 let allServers = [];    
@@ -14,7 +29,7 @@ let currentUser = null;
 let hasSeenWarning = false;    
 let readNotifications = JSON.parse(localStorage.getItem("readNotifications") || "[]");    
 
-// Subdomain cache: countryCode (lowercase) → full subdomain
+// Subdomain cache: countryCode (lowercase) → { domain: full subdomain, zone: mainDomain }
 let subdomainMap = {};    
 try {
     const saved = localStorage.getItem('subdomainMap');
@@ -67,7 +82,7 @@ function setRandomUserAvatar() {
     avatarEl.className = `w-12 h-12 bg-gradient-to-br ${savedColor} rounded-full flex items-center justify-center shadow-lg text-2xl`;    
 }    
 
-// ================== DEVTOOLS DETECTION (2026 hardened version) ==================    
+// ================== DEVTOOLS DETECTION ==================    
 const DevToolsDetector = (function() {    
     let isOpen = false;    
     let detectionScore = 0;    
@@ -217,6 +232,9 @@ function hideGlobalLoading() {
 async function prewarmUserSubdomains(code, expiry_date) {
   if (!code || !expiry_date) return false;
 
+  showGlobalLoading();
+  showToast('កំពុងរៀបចំ subdomains សម្រាប់អ្នក... សូមរង់ចាំបន្តិច');
+
   try {
     const res = await fetch(`${WORKER_URL}/prewarm-subdomains`, {
       method: 'POST',
@@ -228,48 +246,70 @@ async function prewarmUserSubdomains(code, expiry_date) {
     });
 
     if (!res.ok) {
-      console.warn('Prewarm request failed:', res.status);
+      console.warn('Prewarm request failed:', res.status, await res.text());
       return false;
     }
 
     const data = await res.json();
-    console.log('Prewarm result:', data);
 
-    // If worker returns list of domains (recommended future improvement)
-    if (data.success && Array.isArray(data.domains)) {
-      data.domains.forEach(fullDomain => {
-        const cc = fullDomain.split('.')[0].slice(0, 2).toLowerCase();
-        if (cc.length === 2) {
-          subdomainMap[cc] = fullDomain;
-        }
-      });
-    } 
-    // Fallback: reconstruct domains ourselves from known countries
-    else if (data.success) {
-      const cleanCode = code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-      const yyyymmdd = expiry_date.replace(/-/g, '').slice(0, 8);
+    if (data.success) {
+      // Preferred: use real domains returned by worker
+      if (Array.isArray(data.created) || Array.isArray(data.updated) || Array.isArray(data.skipped)) {
+        const domains = [
+          ...(data.created || []),
+          ...(data.updated || []),
+          ...(data.skipped || [])
+        ];
 
-      const countries = [...new Set(
-        allServers.map(s => 
-          String(s.countrycode || s.country || 'kh')
-            .trim()
-            .toLowerCase()
-        ).filter(Boolean)
-      )];
+        domains.forEach(fullDomain => {
+          if (typeof fullDomain !== 'string' || !fullDomain.includes('.')) return;
+          const parts = fullDomain.split('.');
+          const cc = parts[0].slice(0, 2).toLowerCase();
+          if (cc.length !== 2) return;
 
-      countries.forEach(cc => {
-        const domain = `${cc}${cleanCode}${yyyymmdd}.${MAIN_DOMAIN}`;
-        subdomainMap[cc] = domain;
-      });
+          const zone = DNS_ZONES.find(z => fullDomain.endsWith(`.${z.mainDomain}`)) || DNS_ZONES[0];
+
+          subdomainMap[cc] = {
+            domain: fullDomain,
+            zone: zone.mainDomain
+          };
+        });
+      }
+      // Fallback reconstruction - prefer primary zone
+      else {
+        const cleanCode = cleanCodeForSubdomain(code);
+        const yyyymmdd = expiry_date.replace(/-/g, '').slice(0, 8);
+
+        const countries = [...new Set(
+          allServers
+            .map(s => String(s.countrycode || s.country || 'kh').trim().toLowerCase())
+            .filter(cc => cc.length === 2)
+        )];
+
+        const preferredZone = DNS_ZONES[0].mainDomain;
+
+        countries.forEach(cc => {
+          const domain = `${cc}${cleanCode}${yyyymmdd}.${preferredZone}`;
+          subdomainMap[cc] = {
+            domain,
+            zone: preferredZone
+          };
+        });
+      }
+
+      localStorage.setItem('subdomainMap', JSON.stringify(subdomainMap));
+      showToast('បានរៀបចំ server រួចរាល់ ✓');
+      return true;
+    } else {
+      showToast(data.error || 'មានបញ្ហាបន្តិច');
+      return false;
     }
-
-    // Persist to localStorage
-    localStorage.setItem('subdomainMap', JSON.stringify(subdomainMap));
-
-    return data.success === true;
   } catch (err) {
     console.error('Prewarm error:', err);
+    showToast('ការតភ្ជាប់មានបញ្ហា');
     return false;
+  } finally {
+    hideGlobalLoading();
   }
 }
 
@@ -457,7 +497,7 @@ function closeIPModal() {
     document.getElementById('ip-modal').classList.add('hidden');    
 }    
 
-// ================== CONFIG PLACEHOLDER REPLACEMENT (FIXED) ==================    
+// ================== CONFIG PLACEHOLDER REPLACEMENT ==================    
 async function replacePlaceholdersInConfig(text, serverItem) {    
     let config = text;    
 
@@ -472,11 +512,12 @@ async function replacePlaceholdersInConfig(text, serverItem) {
         .trim()
         .toLowerCase();
 
-    if (subdomainMap[country]) {
-        replacement = subdomainMap[country];
-        console.log(`[Subdomain used] ${country} → ${replacement}`);
+    // Prefer cached subdomain (from any zone) — avoids duplicate creation
+    if (subdomainMap[country]?.domain) {
+        replacement = subdomainMap[country].domain;
+        console.log(`[Using cached subdomain] ${country} → ${replacement}`);
     } else {
-        console.warn(`[No subdomain] ${country} → falling back to IP: ${replacement}`);
+        console.warn(`[No subdomain cached] ${country} → falling back to IP: ${replacement}`);
     }
 
     return config.replace(/random-domain/gi, replacement);    
@@ -511,12 +552,6 @@ async function loadData() {
 
         const text = await res.text();    
         const data = JSON.parse(text);    
-
-        // Reload subdomain map on every data load (in case cleared)
-        try {
-            const saved = localStorage.getItem('subdomainMap');
-            if (saved) subdomainMap = JSON.parse(saved);
-        } catch {}
 
         validCodes = data.validCodes || [];    
         allServers = data.allServers || [];    
@@ -590,7 +625,7 @@ function checkLoginCode() {
         errorEl.classList.add('hidden');    
         showMainHeaderElements();    
 
-        subdomainMap = {};    
+        subdomainMap = {}; // reset on new login
     } else {    
         errorEl.textContent = 'កូដមិនត្រឹមត្រូវ ឬផុតកំណត់ហើយ!';    
         errorEl.classList.remove('hidden');    
@@ -678,24 +713,7 @@ async function closeWarningModal() {
         return;
     }
 
-    showGlobalLoading();
-    showToast('កំពុងរៀបចំ Server សម្រាប់អ្នក... សូមរង់ចាំបន្តិច');
-
-    try {
-        const success = await prewarmUserSubdomains(currentUser.code, currentUser.expiry);
-
-        hideGlobalLoading();
-
-        if (success) {
-            showToast('បានរៀបចំ server រួចរាល់ ✓');
-        } else {
-            showToast('មានបញ្ហាបន្តិចក្នុងការរៀបចំ Server');
-        }
-    } catch (err) {
-        hideGlobalLoading();
-        console.error('Prewarm failed:', err);
-        showToast('ការរៀបចំ Server បរាជ័យ – សូម refresh ទំព័រ');
-    }
+    await prewarmUserSubdomains(currentUser.code, currentUser.expiry);
 }    
 
 // ================== NAVIGATION ==================    
@@ -850,11 +868,6 @@ function renderMainMenu() {
         }
     });
 
-    // ---------------------------
-    // ICON SUPPORT:
-    // - mainMenuItems.icon can be URL (image) OR FontAwesome class
-    // - legacy mainMenuItems.iconUrl is still supported
-    // ---------------------------
     function isLikelyUrl(s) {
         s = String(s || '').trim();
         return /^https?:\/\//i.test(s) || /^data:image\//i.test(s);
@@ -934,11 +947,6 @@ function renderMainMenu() {
               `
             : '';
 
-        // ---------- ICON RENDER (UPDATED) ----------
-        // Priority:
-        // 1) item.icon is URL => image
-        // 2) item.iconUrl (legacy) => image
-        // 3) item.icon is FontAwesome class => <i>
         const iconValue = (item.icon ?? '').toString().trim();
         const iconUrl = isLikelyUrl(iconValue)
             ? iconValue
@@ -967,7 +975,6 @@ function renderMainMenu() {
                 </div>
             `;
         }
-        // ---------- END ICON RENDER ----------
 
         const serversCount = categoryKey ? (categoryServers[categoryKey] || 0) : 0;
         const showSubBtn = !!categoryKey && serversCount > 0;
@@ -1287,6 +1294,14 @@ function copyText(text) {
     });
 }
 
+// ================== HELPER FUNCTIONS ==================
+function cleanCodeForSubdomain(code) {
+  return String(code || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+}
+
 // ================== APP INITIALIZATION ==================    
 document.addEventListener('DOMContentLoaded', () => {    
     document.getElementById('logout-btn')?.addEventListener('click', () => logout(false));    
@@ -1300,5 +1315,5 @@ document.addEventListener('DOMContentLoaded', () => {
 });    
 
 function initApp() {    
-    console.log("AnajakVPN client initialized - with fixed subdomain support");    
+    console.log("AnajakVPN client initialized - multi-zone DNS support enabled");    
 }

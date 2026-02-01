@@ -1,238 +1,384 @@
 <!DOCTYPE html>
-<html lang="km" class="dark">
+<html lang="km">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AnajakVPN Admin</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnajakVIP</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#000000">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <!-- Google Fonts: Inter + Noto Sans Khmer -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+Khmer:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Force HTTPS upgrades (works with CSP-aware browsers) -->
+<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
 
-<script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<meta name="theme-color" content="#000000">
-<link rel="manifest" href="/manifest.json">
-<link rel="icon" href="/icon.png">
+<!-- Prevent referrer leakage -->
+<meta name="referrer" content="strict-origin-when-cross-origin">
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.css"/>
-<script src="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.js"></script>
-<link href="styles.css" rel="stylesheet">
+<!-- Disable MIME sniffing -->
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
 
+<!-- Reduce cross-origin data exposure -->
+<meta http-equiv="Cross-Origin-Resource-Policy" content="same-site">
+<meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin">
+<meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
+
+<!-- Limit browser features (privacy-focused) -->
+<meta http-equiv="Permissions-Policy"
+      content="
+        geolocation=(),
+        microphone=(),
+        camera=(),
+        payment=(),
+        usb=(),
+        bluetooth=(),
+        interest-cohort=()
+      ">
+
+    <link rel="icon" href="/icon.png">
+    <!-- Custom Styles -->
+    <link href="styles.css" rel="stylesheet">
 </head>
-<body>
+<body class="min-h-screen text-gray-100 pb-20 bg-black">
 
-<!-- Loading Overlay -->
-<!-- Loading Overlay – must be last in body -->
-<div id="loadingOverlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[9999] hidden">
+    <!-- Warning Modal (shown on first successful login) -->
+    <div id="warning-modal" class="fixed inset-0 bg-black bg-opacity-85 flex items-center justify-center z-100 opacity-0 invisible transition-all duration-300">
+        <div class="modal-content bg-[#0d0d0d] border-2 border-red-600 rounded-2xl p-8 max-w-[90%] text-center shadow-2xl shadow-red-900/30">
+            <i class="fas fa-exclamation-triangle modal-icon text-6xl text-red-500 mb-6"></i>
+            <h2 class="text-2xl font-bold text-red-400 mb-6">សំខាន់!</h2>
+            <p class="text-lg mb-6 leading-relaxed">
+                សូមកុំចែករំលែក server ឬកូដចូលប្រើនេះ<br>
+                ទៅអ្នកដទៃ ព្រោះវានឹងធ្វើឱ្យ server ដំណើរការយឺត<br>
+                ឬត្រូវបានបិទដោយក្រុមហ៊ុន។
+            </p>
+            <p class="text-sm text-gray-400 mb-8">
+                សូមប្រើប្រាស់ដោយខ្លួនឯងតែប៉ុណ្ណោះ ដើម្បីរក្សាល្បឿនលឿន និងស្ថេរភាព។
+            </p>
+            <button onclick="closeWarningModal()" 
+                    class="bg-red-600 hover:bg-red-700 text-white px-10 py-4 rounded-xl text-lg font-medium transition shadow-lg">
+                ខ្ញុំយល់ហើយ
+            </button>
+        </div>
+    </div>
+
+    <!-- Login Screen -->
+    <div id="login-view" class="container mx-auto px-5 py-10 max-w-md flex flex-col items-center justify-center min-h-screen">
+        <h1 class="text-3xl font-bold text-purple-400 mb-10">ស្វាគមន៍</h1>
+        
+        <div class="card-bg rounded-2xl p-8 w-full shadow-2xl">
+            <h2 class="text-xl font-semibold text-center mb-8 text-purple-300">បញ្ចូលកូដដើម្បីចូលប្រើ</h2>
+            
+            <input type="text" id="login-code" placeholder="វាយកូដរបស់អ្នក..." 
+                   class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-5 py-4 text-gray-100 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition mb-6 text-lg"
+                   autocomplete="off">
+            
+            <button onclick="checkLoginCode()" 
+                    class="w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-xl transition font-medium shadow-lg text-lg">
+                ចូលប្រើ
+            </button>
+            
+            <p id="login-error" class="text-red-400 text-center mt-5 hidden text-base"></p>
+        </div>
+    </div>
+
+    <!-- ===================== MAIN APP CONTENT ===================== -->
+    <div id="app-content" class="hidden min-h-screen">
+
+        <div class="container mx-auto px-5 py-10 pb-28 max-w-md">
+
+            <!-- User Info + Logout -->
+            <div class="flex items-center justify-between mb-8">
+                <div class="flex items-center space-x-4">
+                    <div id="random-user-avatar" class="w-14 h-14 rounded-full flex items-center justify-center shadow-lg text-3xl font-bold">
+                        <!-- Random emoji inserted by JS -->
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-400">ស្វាគមន៍</p>
+                        <p id="user-code-display" class="font-semibold text-purple-300 text-lg">User</p>
+                    </div>
+                </div>
+                
+                <button id="logout-btn" class="text-red-400 flex items-center space-x-2 hover:text-red-300 transition">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span class="text-base">ចាកចេញ</span>
+                </button>
+            </div>
+
+            <!-- Expiry Information Card -->
+            <div class="card-bg rounded-xl p-5 mb-8 flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-calendar-check text-3xl text-green-400"></i>
+                    <div>
+                        <p class="text-sm text-gray-500">ផុតកំណត់ថ្ងៃទី</p>
+                        <p id="expiry-display" class="font-semibold text-green-300 text-lg">—</p>
+                    </div>
+                </div>
+                <i class="fas fa-shield-alt text-green-500 text-2xl"></i>
+            </div>
+
+            <!-- Page Title & Last Update -->
+            <div class="text-center mb-10">
+                <h1 class="text-3xl font-bold text-purple-400 tracking-wide">Server Network List</h1>
+                <p id="last-update" class="text-sm text-gray-500 mt-3">
+                    ធ្វើបច្ចុប្បន្នភាពចុងក្រោយ៖ <span>—</span>
+                </p>
+            </div>
+
+            <!-- Search Bar (always visible) -->
+            <div class="mb-8 relative">
+                <i class="fas fa-search absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 text-xl"></i>
+                <input type="text" id="search-input" placeholder="ស្វែងរក server..." 
+                       class="w-full bg-[#0d0d0d] border border-[#1a1a1a] rounded-xl pl-14 pr-5 py-4 text-gray-100 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition text-base">
+            </div>
+
+            <!-- ================= MAIN MENU (dynamically filled by JS) ================= -->
+            <div id="main-menu" class="space-y-5"></div>
+
+            <!-- Apps Download Section -->
+            <div id="apps-view" class="space-y-6 hidden">
+                <div class="flex items-center justify-between mb-8">
+                    <button onclick="backToMain()" class="text-purple-400 flex items-center space-x-3 text-lg">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>ត្រឡប់ក្រោយ</span>
+                    </button>
+                    <h2 class="text-2xl font-semibold text-purple-400">ទាញយកកម្មវិធី</h2>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-5">
+                    <!-- iOS -->
+                    <a href="https://apps.apple.com/us/app/v2box-v2ray-client/id6446814690" target="_blank" rel="noopener"
+                       class="card-bg rounded-2xl p-6 flex flex-col items-center text-center hover:bg-[#151515] transition">
+                        <i class="fab fa-apple text-6xl text-gray-300 mb-4"></i>
+                        <p class="text-sm text-gray-400">Download for</p>
+                        <p class="text-lg font-semibold text-white mt-1">iPhone / iPad</p>
+                    </a>
+                    
+                    <!-- Android -->
+                    <a href="https://play.google.com/store/apps/details?id=com.v2raytun.android" target="_blank" rel="noopener"
+                       class="card-bg rounded-2xl p-6 flex flex-col items-center text-center hover:bg-[#151515] transition">
+                        <i class="fab fa-android text-6xl text-green-400 mb-4"></i>
+                        <p class="text-sm text-gray-400">Download for</p>
+                        <p class="text-lg font-semibold text-white mt-1">Android</p>
+                    </a>
+                    
+                    <!-- macOS -->
+                    <a href="https://github.com/2dust/v2rayN/releases/download/7.16.9/v2rayN-macos-64.dmg" target="_blank" rel="noopener"
+                       class="card-bg rounded-2xl p-6 flex flex-col items-center text-center hover:bg-[#151515] transition">
+                        <i class="fab fa-apple text-6xl text-gray-300 mb-4"></i>
+                        <p class="text-sm text-gray-400">Download for</p>
+                        <p class="text-lg font-semibold text-white mt-1">MacBook</p>
+                    </a>
+                    
+                    <!-- Windows -->
+                    <a href="https://github.com/MatsuriDayo/nekoray/releases/download/4.0.1/nekoray-4.0.1-2024-12-12-windows64.zip" target="_blank" rel="noopener"
+                       class="card-bg rounded-2xl p-6 flex flex-col items-center text-center hover:bg-[#151515] transition">
+                        <i class="fab fa-windows text-6xl text-blue-400 mb-4"></i>
+                        <p class="text-sm text-gray-400">Download for</p>
+                        <p class="text-lg font-semibold text-white mt-1">Windows</p>
+                    </a>
+                    
+                    <!-- Linux -->
+                    <a href="https://github.com/MatsuriDayo/nekoray/releases/download/4.0.1/nekoray-4.0.1-2024-12-12-linux64.zip" target="_blank" rel="noopener"
+                       class="card-bg rounded-2xl p-6 flex flex-col items-center text-center hover:bg-[#151515] transition">
+                        <i class="fab fa-linux text-6xl text-gray-300 mb-4"></i>
+                        <p class="text-sm text-gray-400">Download for</p>
+                        <p class="text-lg font-semibold text-white mt-1">Linux</p>
+                    </a>
+                    
+                    <!-- Debian -->
+                    <a href="https://github.com/MatsuriDayo/nekoray/releases/download/4.0.1/nekoray-4.0.1-2024-12-12-debian-x64.deb" target="_blank" rel="noopener"
+                       class="card-bg rounded-2xl p-6 flex flex-col items-center text-center hover:bg-[#151515] transition">
+                        <i class="fas fa-box text-6xl text-purple-400 mb-4"></i>
+                        <p class="text-sm text-gray-400">Package</p>
+                        <p class="text-lg font-semibold text-white mt-1">Debian (.deb)</p>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Server List View -->
+            <div id="server-list-view" class="space-y-5 hidden">
+                <div class="flex items-center justify-between mb-8">
+                    <button onclick="backToMain()" class="text-purple-400 flex items-center space-x-3 text-lg">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>ត្រឡប់ក្រោយ</span>
+                    </button>
+                    <h2 id="server-category-title" class="text-2xl font-semibold text-purple-400"></h2>
+                </div>
+                <div id="servers-container" class="space-y-4"></div>
+            </div>
+
+            <!-- Notifications View -->
+            <div id="notifications-view" class="space-y-5 hidden">
+                <div class="flex items-center justify-between mb-8">
+                    <button onclick="backToMain()" class="text-purple-400 flex items-center space-x-3 text-lg">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>ត្រឡប់ក្រោយ</span>
+                    </button>
+                    <h2 class="text-2xl font-semibold text-purple-400">ការជូនដំណឹង</h2>
+                </div>
+                <div id="notifications-container" class="space-y-5"></div>
+                <p id="no-notifications" class="text-center text-gray-500 py-16 hidden">
+                    <i class="fas fa-bell-slash text-7xl mb-6 opacity-30"></i><br>
+                    មិនទាន់មានការជូនដំណឹងថ្មី
+                </p>
+            </div>
+
+            <!-- How to Use Guide -->
+            <div id="howto-view" class="hidden space-y-6">
+                <div class="flex items-center justify-between mb-8">
+                    <button onclick="backToMain()" class="text-purple-400 flex items-center space-x-3 text-lg">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>ត្រឡប់ក្រោយ</span>
+                    </button>
+                    <h2 class="text-2xl font-semibold text-purple-400">របៀបប្រើប្រាស់</h2>
+                </div>
+                
+                <!-- How to Use / របៀបចូលប្រើ Card -->
+<div onclick="window.location.href='howto.html'" 
+     class="card-bg rounded-2xl p-6 flex items-center space-x-5 hover:bg-[#1a1a1a] transition-all duration-300 cursor-pointer group shadow-lg">
+    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-600/30 to-indigo-600/30 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform duration-300">
+        <i class="fas fa-video text-purple-400"></i>
+    </div>
+    <div>
+        <h3 class="text-lg font-semibold text-purple-300 group-hover:text-purple-200 transition-colors">របៀបចូលប្រើ</h3>
+        <p class="text-sm text-gray-400 mt-1">មើលវីដេអូបង្ហាញជាជំហានៗ</p>
+    </div>
+    <i class="fas fa-chevron-right ml-auto text-gray-500 group-hover:text-purple-400 transition-colors"></i>
+</div>
+                
+                <div class="card-bg rounded-2xl p-8 space-y-10 text-gray-200 text-base leading-relaxed">
+                    <div class="flex items-start space-x-5">
+                        <i class="fas fa-calendar-alt text-3xl text-purple-400 mt-1 flex-shrink-0"></i>
+                        <div>
+                            <h3 class="font-semibold mb-3 text-purple-300 text-lg">កាលបរិច្ឆេទធ្វើបច្ចុប្បន្នភាព</h3>
+                            <p>នៅខាងលើ title នឹងបង្ហាញកាលបរិច្ឆេទ និងម៉ោងដែល server list ត្រូវបានធ្វើបច្ចុប្បន្នភាពចុងក្រោយបំផុត</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start space-x-5">
+                        <i class="fas fa-search text-3xl text-purple-400 mt-1 flex-shrink-0"></i>
+                        <div>
+                            <h3 class="font-semibold mb-3 text-purple-300 text-lg">ស្វែងរក Server</h3>
+                            <p>វាយឈ្មោះ server ឬ URL នៅប្រអប់ស្វែងរកខាងលើ លទ្ធផលនឹងបង្ហាញភ្លាមៗ</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start space-x-5">
+                        <i class="fas fa-mobile-alt text-3xl text-purple-400 mt-1 flex-shrink-0"></i>
+                        <div>
+                            <h3 class="font-semibold mb-3 text-purple-300 text-lg">ទាញយកកម្មវិធី</h3>
+                            <p>ចុចកាត <strong>App កម្មវិធី</strong> → ជ្រើសរើស platform របស់អ្នកដើម្បីទាញយក</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start space-x-5">
+                        <i class="fas fa-list-ul text-3xl text-purple-400 mt-1 flex-shrink-0"></i>
+                        <div>
+                            <h3 class="font-semibold mb-3 text-purple-300 text-lg">ជ្រើសរើសប្រភេទ Server</h3>
+                            <p>ចុចលើកាតប្រភេទដើម្បីមើល server ក្នុងប្រភេទនីមួយៗ</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start space-x-5">
+                        <i class="fas fa-copy text-3xl text-purple-400 mt-1 flex-shrink-0"></i>
+                        <div>
+                            <h3 class="font-semibold mb-3 text-purple-300 text-lg">ចម្លង Server</h3>
+                            <p>ចុចប៊ូតុង <strong>ចម្លង</strong> ដើម្បី copy text ភ្លាមៗ រួច paste ក្នុង VPN app</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start space-x-5">
+                        <i class="fas fa-bell text-3xl text-purple-400 mt-1 flex-shrink-0"></i>
+                        <div>
+                            <h3 class="font-semibold mb-3 text-purple-300 text-lg">ការជូនដំណឹង</h3>
+                            <p>ចុច <strong>NOTIFICATIONS</strong> ដើម្បីមើលការជូនដំណឹងចុងក្រោយ<br>បើកការអនុញ្ញាត push notification ដើម្បីទទួលដំណឹងភ្លាមៗ</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation Bar -->
+    <div id="bottom-nav" class="fixed bottom-0 left-0 right-0 bg-[#0d0d0d] border-t border-[#1a1a1a] py-4 px-8 z-50 hidden shadow-2xl shadow-black/50">
+        <div class="max-w-md mx-auto flex justify-around items-center">
+            <button onclick="backToMain()" class="flex flex-col items-center text-gray-300 hover:text-purple-400 transition">
+                <i class="fas fa-home text-3xl mb-1"></i>
+                <span class="text-xs mt-1">ផ្ទះ</span>
+            </button>
+            <button onclick="showMyIP()" class="flex flex-col items-center text-gray-300 hover:text-purple-400 transition">
+                <i class="fas fa-network-wired text-3xl mb-1"></i>
+                <span class="text-xs mt-1">Check IP</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- IP Information Modal -->
+    <div id="ip-modal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-60 hidden">
+        <div class="card-bg rounded-2xl p-8 max-w-sm w-11/12 text-center relative">
+            <button onclick="closeIPModal()" class="absolute top-5 right-5 text-gray-400 hover:text-white text-2xl">
+                <i class="fas fa-times"></i>
+            </button>
+
+            <h2 class="text-2xl font-bold text-purple-400 mb-8">ព័ត៌មាន IP របស់អ្នក</h2>
+
+            <div id="ip-loading" class="py-12">
+                <i class="fas fa-spinner fa-spin text-5xl text-purple-500"></i>
+                <p class="mt-6 text-gray-400 text-lg">កំពុងទាញយក...</p>
+            </div>
+
+            <div id="ip-content" class="hidden">
+                <div class="text-7xl mb-6" id="country-flag"></div>
+                <p class="text-3xl font-bold text-white mb-3" id="ip-address">—</p>
+                <p class="text-xl text-gray-300 mb-2" id="country-name">—</p>
+                <p class="text-base text-gray-500" id="isp-info">—</p>
+            </div>
+
+            <p class="text-xs text-gray-600 mt-10 opacity-70">
+                ទិន្នន័យពី ipapi.co • មិនមែនជាទិន្នន័យផ្លូវការទេ
+            </p>
+        </div>
+    </div>
+
+    <!-- Fullscreen Screenshot Modal -->
+    <div id="image-modal" class="fixed inset-0 bg-black bg-opacity-95 hidden z-50 flex items-center justify-center p-4 overflow-auto">
+        <span id="modal-close" class="absolute top-6 right-6 text-white text-5xl cursor-pointer z-50">&times;</span>
+        <img id="modal-img" class="rounded-2xl shadow-2xl max-w-full max-h-[90vh] mx-auto my-auto object-contain" src="" alt="Screenshot">
+    </div>
+    
+    <!-- Add this somewhere in body, hidden by default -->
+<div id="global-loading-overlay" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 hidden">
   <div class="text-center">
-    <i class="fas fa-spinner animate-spin text-6xl text-indigo-400 mb-5"></i>
-    <p class="text-xl font-medium text-slate-200">កំពុងដំណើរការ...</p>
+    <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-purple-500 mx-auto mb-6"></div>
+    <p class="text-white text-xl font-medium">កំពុងរៀបចំ server សម្រាប់អ្នក...</p>
+    <p class="text-gray-400 mt-2 text-sm">សូមរង់ចាំបន្តិច (10-30 វិនាទី)</p>
   </div>
 </div>
 
-<!-- Header -->
-<header class="bg-slate-900/80 backdrop-blur-md border-b border-slate-700 sticky top-0 z-40">
-  <div class="container-safe py-4 flex justify-between items-center">
-    <h1 class="text-2xl font-bold text-indigo-400">Admin</h1>
-    <div class="flex gap-3">
-      <button id="exportBtn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded transition flex items-center gap-2">
-        <i class="fas fa-download"></i> Export
-      </button>
-      <label class="px-4 py-2 bg-indigo-700/30 hover:bg-indigo-700/50 rounded cursor-pointer flex items-center gap-2">
-        <i class="fas fa-upload"></i> Import
-        <input type="file" id="importInput" accept=".json" class="hidden"/>
-      </label>
+    <!-- Toast Notifications -->
+    <div id="copy-feedback" class="copy-feedback hidden">
+        <i class="fas fa-check mr-3"></i> បានចម្លងរួចរាល់!
     </div>
-  </div>
-</header>
-
-<main class="container-safe py-6">
-
-  <!-- Quick Actions -->
-  <div class="flex flex-wrap gap-3 mb-8">
-    <button id="replaceIpBtn" class="btn-primary text-white px-5 py-3 rounded-lg font-medium flex items-center gap-2 flex-1 min-w-[160px] justify-center">
-      <i class="fas fa-exchange-alt"></i> ផ្លាស់ប្តូរ IP
-    </button>
-    <button id="forceSyncBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-lg font-medium flex items-center gap-2 flex-1 min-w-[180px] justify-center">
-      <i class="fas fa-sync"></i> Force Sync GitLab
-    </button>
-  </div>
-
-  <!-- Tabs -->
-  <div class="flex overflow-x-auto gap-2 pb-3 mb-6 border-b border-slate-700 scrollbar-thin">
-    <button class="tab-btn px-5 py-2.5 rounded-lg font-medium transition bg-indigo-600/40 whitespace-nowrap" data-tab="overview">ទិដ្ឋភាពទូទៅ</button>
-    <button class="tab-btn px-5 py-2.5 rounded-lg font-medium transition whitespace-nowrap" data-tab="notifications">ជូនដំណឹង</button>
-    <button class="tab-btn px-5 py-2.5 rounded-lg font-medium transition whitespace-nowrap" data-tab="codes">កូដ</button>
-    <button class="tab-btn px-5 py-2.5 rounded-lg font-medium transition whitespace-nowrap" data-tab="servers">ម៉ាស៊ីនមេ & App</button>
-    <button class="tab-btn px-5 py-2.5 rounded-lg font-medium transition whitespace-nowrap" data-tab="categories">ប្រភេទ</button>
-    <button class="tab-btn px-5 py-2.5 rounded-lg font-medium transition whitespace-nowrap" data-tab="menu">ម៉ឺនុយ</button>
-    <button class="tab-btn px-5 py-2.5 rounded-lg font-medium transition whitespace-nowrap" data-tab="cloudflare">Cloudflare Subdomains</button>
-  </div>
-
-<!-- Overview -->
-<div id="overview" class="tab-content">
-  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4 mb-10">
-    <!-- Existing + New -->
-    <div class="card p-5 text-center">
-      <p class="text-slate-400 text-sm">ជូនដំណឹង</p>
-      <p class="text-3xl font-bold text-indigo-400" id="stats-notif">0</p>
+    <div id="push-feedback" class="push-feedback hidden">
+        <i class="fas fa-bell mr-3"></i> បានបើកការជូនដំណឹងជោគជ័យ!
     </div>
-    <div class="card p-5 text-center">
-      <p class="text-slate-400 text-sm">តម្លៃសរុប (est.)</p>
-      <p class="text-3xl font-bold text-emerald-400" id="stats-total-cost">$0.00</p>
+    <div id="error-feedback" class="error-feedback hidden">
+        កូដមិនត្រឹមត្រូវ ឬផុតកំណត់!
     </div>
-    <div class="card p-5 text-center">
-      <p class="text-slate-400 text-sm">កូដសរុប</p>
-      <p class="text-3xl font-bold text-purple-400" id="stats-codes">0</p>
-    </div>
-    <div class="card p-5 text-center">
-      <p class="text-slate-400 text-sm">ម៉ាស៊ីនមេ/App</p>
-      <p class="text-3xl font-bold text-cyan-400" id="stats-servers">0</p>
-    </div>
-    <div class="card p-5 text-center">
-      <p class="text-slate-400 text-sm">ប្រភេទ</p>
-      <p class="text-3xl font-bold text-amber-400" id="stats-categories">0</p>
-    </div>
-    <div class="card p-5 text-center border-rose-600/40 bg-rose-950/10">
-      <p class="text-rose-300 text-sm font-medium">ជិតផុតកំណត់</p>
-      <p class="text-3xl font-bold text-rose-400" id="stats-expiring-soon">0</p>
-    </div>
-    <div class="card p-5 text-center">
-      <p class="text-slate-400 text-sm">Subdomain សរុប</p>
-      <p class="text-3xl font-bold text-blue-400" id="stats-subdomains">0</p>
-    </div>
-    <!-- New: Total Country -->
-    <div class="card p-5 text-center">
-      <p class="text-slate-400 text-sm">ប្រទេសសរុប</p>
-      <p class="text-3xl font-bold text-violet-400" id="stats-total-country">0</p>
-    </div>
-  </div>
-</div>
-
-  <!-- Notifications -->
-  <div id="notifications" class="tab-content hidden">
-    <div class="flex justify-between items-center mb-6 flex-wrap gap-4">
-      <h2 class="text-xl sm:text-2xl font-bold flex items-center gap-3"><i class="fas fa-bell text-indigo-400"></i> សេចក្តីជូនដំណឹង</h2>
-      <button onclick="openAddModal('notification')" class="btn-primary text-white px-5 py-2 rounded-lg flex items-center gap-2">
-        <i class="fas fa-plus"></i> បន្ថែម
-      </button>
-    </div>
-    <div id="notificationsList" class="grid gap-4"></div>
-  </div>
-
-  <!-- Valid Codes -->
-  <div id="codes" class="tab-content hidden">
-    <div class="flex justify-between items-center mb-6 flex-wrap gap-4">
-      <h2 class="text-xl sm:text-2xl font-bold flex items-center gap-3"><i class="fas fa-key text-purple-400"></i> កូដសុពលភាព</h2>
-      <button onclick="openAddModal('code')" class="btn-primary text-white px-5 py-2 rounded-lg flex items-center gap-2">
-        <i class="fas fa-plus"></i> បន្ថែមកូដ
-      </button>
-    </div>
-    <div id="codesList" class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"></div>
-  </div>
-
-  <!-- Servers & Apps -->
-  <div id="servers" class="tab-content hidden">
-    <div class="flex justify-between items-center mb-6 flex-wrap gap-4">
-      <h2 class="text-xl sm:text-2xl font-bold flex items-center gap-3"><i class="fas fa-server text-cyan-400"></i> ម៉ាស៊ីនមេ & App</h2>
-      <button onclick="openAddModal('server')" class="btn-primary text-white px-5 py-2 rounded-lg flex items-center gap-2">
-        <i class="fas fa-plus"></i> បន្ថែម
-      </button>
-    </div>
-    <div id="serversList" class="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"></div>
-  </div>
-
-  <!-- Category Titles -->
-  <div id="categories" class="tab-content hidden">
-    <div class="flex justify-between items-center mb-6 flex-wrap gap-4">
-      <h2 class="text-xl sm:text-2xl font-bold flex items-center gap-3"><i class="fas fa-tags text-amber-400"></i> ឈ្មោះប្រភេទ</h2>
-      <button onclick="openAddModal('category')" class="btn-primary text-white px-5 py-2 rounded-lg flex items-center gap-2">
-        <i class="fas fa-plus"></i> បន្ថែមប្រភេទ
-      </button>
-    </div>
-    <div id="categoriesList" class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"></div>
-  </div>
-
-  <!-- Main Menu Items -->
-  <div id="menu" class="tab-content hidden">
-    <div class="flex justify-between items-center mb-6 flex-wrap gap-4">
-      <h2 class="text-xl sm:text-2xl font-bold flex items-center gap-3"><i class="fas fa-list-ul text-rose-400"></i> ធាតុម៉ឺនុយសំខាន់</h2>
-      <button onclick="openAddModal('menu')" class="btn-primary text-white px-5 py-2 rounded-lg flex items-center gap-2">
-        <i class="fas fa-plus"></i> បន្ថែម
-      </button>
-    </div>
-    <div id="menuList" class="grid gap-4"></div>
-  </div>
-
-  <!-- Cloudflare Subdomains (only list/view) -->
-  <div id="cloudflare" class="tab-content hidden">
-    <div class="flex justify-between items-center mb-6 flex-wrap gap-4">
-      <h2 class="text-xl sm:text-2xl font-bold flex items-center gap-3">
-        <i class="fas fa-cloud text-blue-400"></i> Cloudflare Subdomains
-      </h2>
-      <div class="flex gap-3 flex-wrap">
-        <button id="refreshSubdomainsBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg flex items-center gap-2">
-          <i class="fas fa-sync"></i> Refresh List
-        </button>
-      </div>
-    </div>
-
-    <div class="card p-6">
-      <div id="subdomainsResult" class="space-y-4 text-center"></div>
-    </div>
-  </div>
-
-</main>
-
-<!-- Replace IP Modal -->
-<div id="replaceIpModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden">
-  <div class="bg-slate-900 p-6 rounded-xl border border-slate-700 w-full max-w-md mx-4 modal-content relative">
-    <button onclick="document.getElementById('replaceIpModal').classList.add('hidden')" class="modal-close-btn">
-      <i class="fas fa-times text-lg"></i>
-    </button>
-
-    <h3 class="text-xl font-bold mb-5 text-indigo-300 mt-10">ផ្លាស់ប្តូរ IP</h3>
-    <form id="replaceIpForm" class="space-y-5">
-      <div>
-        <label class="block text-sm mb-1">ជ្រើសរើស IP ចាស់</label>
-        <select id="oldIpSelect" required class="w-full p-3 bg-slate-800 border border-slate-700 rounded-lg focus:border-indigo-500">
-          <option value="">ជ្រើសរើស IP...</option>
-        </select>
-      </div>
-      <div>
-        <label class="block text-sm mb-1">IP ថ្មី</label>
-        <input type="text" id="newIp" required class="w-full p-3 bg-slate-800 border border-slate-700 rounded-lg focus:border-indigo-500 break-long" placeholder="ឧ. 104.21.34.56"/>
-      </div>
-      <div class="flex gap-3">
-        <button type="submit" class="flex-1 btn-primary py-3 rounded-lg">ផ្លាស់ប្តូរ + Update Worker</button>
-        <button type="button" class="flex-1 bg-slate-700 hover:bg-slate-600 py-3 rounded-lg" onclick="document.getElementById('replaceIpModal').classList.add('hidden')">បោះបង់</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- Generic Add/Edit Modal -->
-<div id="modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden">
-  <div class="bg-slate-900 p-6 rounded-xl border border-slate-700 w-full max-w-lg mx-4 modal-content relative">
-    <button onclick="closeModal()" class="modal-close-btn">
-      <i class="fas fa-times text-lg"></i>
-    </button>
-
-    <h3 id="modalTitle" class="text-xl font-bold mb-5 text-indigo-300 mt-10"></h3>
-    <form id="modalForm" class="space-y-4"></form>
-    <div class="mt-6 flex gap-3">
-      <button id="saveModalBtn" class="flex-1 btn-primary py-3 rounded-lg">រក្សាទុក</button>
-      <button type="button" onclick="closeModal()" class="flex-1 bg-slate-700 hover:bg-slate-600 py-3 rounded-lg">បោះបង់</button>
-    </div>
-  </div>
-</div>
-
-<!-- Main JavaScript -->
-<script src="scripts.js?v=1.0.1"></script>
-<script>
+    <!-- Main JavaScript -->
+    <script src="scripts.js?v=1.6.6"></script>
+    <script>
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/service-worker.js")
     .then(() => console.log("Service Worker Registered"));
 }
-</script>
 </script>
 </body>
 </html>
