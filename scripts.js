@@ -228,7 +228,7 @@ function hideGlobalLoading() {
   if (overlay) overlay.classList.add('hidden');
 }
 
-// ================== PREWARM ALL SUBDOMAINS ==================
+// ================== PREWARM ALL SUBDOMAINS – improved version ==================
 async function prewarmUserSubdomains(code, expiry_date) {
   if (!code || !expiry_date) return false;
 
@@ -246,66 +246,71 @@ async function prewarmUserSubdomains(code, expiry_date) {
     });
 
     if (!res.ok) {
-      console.warn('Prewarm request failed:', res.status, await res.text());
+      const errText = await res.text().catch(() => '');
+      console.warn('Prewarm failed:', res.status, errText);
+      showToast('មានបញ្ហាក្នុងការរៀបចំ subdomain');
       return false;
     }
 
     const data = await res.json();
 
-    if (data.success) {
-      // Preferred: use real domains returned by worker
-      if (Array.isArray(data.created) || Array.isArray(data.updated) || Array.isArray(data.skipped)) {
-        const domains = [
-          ...(data.created || []),
-          ...(data.updated || []),
-          ...(data.skipped || [])
-        ];
-
-        domains.forEach(fullDomain => {
-          if (typeof fullDomain !== 'string' || !fullDomain.includes('.')) return;
-          const parts = fullDomain.split('.');
-          const cc = parts[0].slice(0, 2).toLowerCase();
-          if (cc.length !== 2) return;
-
-          const zone = DNS_ZONES.find(z => fullDomain.endsWith(`.${z.mainDomain}`)) || DNS_ZONES[0];
-
-          subdomainMap[cc] = {
-            domain: fullDomain,
-            zone: zone.mainDomain
-          };
-        });
-      }
-      // Fallback reconstruction - prefer primary zone
-      else {
-        const cleanCode = cleanCodeForSubdomain(code);
-        const yyyymmdd = expiry_date.replace(/-/g, '').slice(0, 8);
-
-        const countries = [...new Set(
-          allServers
-            .map(s => String(s.countrycode || s.country || 'kh').trim().toLowerCase())
-            .filter(cc => cc.length === 2)
-        )];
-
-        const preferredZone = DNS_ZONES[0].mainDomain;
-
-        countries.forEach(cc => {
-          const domain = `${cc}${cleanCode}${yyyymmdd}.${preferredZone}`;
-          subdomainMap[cc] = {
-            domain,
-            zone: preferredZone
-          };
-        });
-      }
-
-      localStorage.setItem('subdomainMap', JSON.stringify(subdomainMap));
-      showToast('បានរៀបចំ server រួចរាល់ ✓');
-      return true;
-    } else {
-      showToast(data.error || 'មានបញ្ហាបន្តិច');
+    if (!data.success) {
+      showToast(data.error || 'មានបញ្ហា');
       return false;
     }
+
+    // ── Critical: Collect ALL actually created/updated/skipped domains ──
+    const realDomains = [
+      ...(data.created || []),
+      ...(data.updated || []),
+      ...(data.skipped || [])
+    ].filter(d => typeof d === 'string' && d.includes('.'));
+
+    if (realDomains.length > 0) {
+      // Worker told us exactly what exists → trust it
+      realDomains.forEach(fullDomain => {
+        const cc = fullDomain.split('.')[0].slice(0, 2).toLowerCase();
+        if (cc.length !== 2) return;
+
+        const matchedZone = DNS_ZONES.find(z => fullDomain.endsWith(`.${z.mainDomain}`));
+        const zoneName = matchedZone ? matchedZone.mainDomain : DNS_ZONES[0].mainDomain;
+
+        subdomainMap[cc] = {
+          domain: fullDomain,
+          zone: zoneName,
+          lastUpdated: Date.now()
+        };
+      });
+
+      console.log('Updated subdomainMap from real worker response:', subdomainMap);
+    } else {
+      // Very rare fallback – prefer primary anyway
+      console.warn('Worker returned no domain list → using fallback reconstruction');
+      const cleanCode = cleanCodeForSubdomain(code);
+      const yyyymmdd = expiry_date.replace(/-/g, '').slice(0, 8);
+      
+      const countries = [...new Set(
+        allServers.map(s => String(s.countrycode || s.country || 'kh').trim().toLowerCase())
+                  .filter(cc => cc.length === 2)
+      )];
+
+      const preferred = DNS_ZONES[0].mainDomain;
+
+      countries.forEach(cc => {
+        subdomainMap[cc] = {
+          domain: `${cc}${cleanCode}${yyyymmdd}.${preferred}`,
+          zone: preferred,
+          lastUpdated: Date.now()
+        };
+      });
+    }
+
+    localStorage.setItem('subdomainMap', JSON.stringify(subdomainMap));
+    showToast('បានរៀបចំ server រួចរាល់ ✓');
+    return true;
+
   } catch (err) {
-    console.error('Prewarm error:', err);
+    console.error('Prewarm critical error:', err);
     showToast('ការតភ្ជាប់មានបញ្ហា');
     return false;
   } finally {
@@ -498,30 +503,37 @@ function closeIPModal() {
 }    
 
 // ================== CONFIG PLACEHOLDER REPLACEMENT ==================    
-async function replacePlaceholdersInConfig(text, serverItem) {    
-    let config = text;    
+async function replacePlaceholdersInConfig(text, serverItem) {
+  let config = text;
 
-    config = config.replace(/r+andom-domain|andom-domain+|(random-domain)+/gi, 'random-domain');    
+  config = config.replace(/r+andom-domain|andom-domain+|(random-domain)+/gi, 'random-domain');
 
-    const hasRandomDomain = /random-domain/gi.test(config);    
-    if (!hasRandomDomain) return config;    
+  if (!/random-domain/gi.test(config)) {
+    return config;
+  }
 
-    let replacement = serverItem.ip || '';
+  const country = String(serverItem.countrycode || serverItem.country || 'kh')
+    .trim()
+    .toLowerCase();
 
-    const country = String(serverItem.countrycode || serverItem.country || 'kh')
-        .trim()
-        .toLowerCase();
+  let replacement = serverItem.ip || '127.0.0.1'; // safety fallback
 
-    // Prefer cached subdomain (from any zone) — avoids duplicate creation
-    if (subdomainMap[country]?.domain) {
-        replacement = subdomainMap[country].domain;
-        console.log(`[Using cached subdomain] ${country} → ${replacement}`);
-    } else {
-        console.warn(`[No subdomain cached] ${country} → falling back to IP: ${replacement}`);
+  if (subdomainMap[country]?.domain) {
+    replacement = subdomainMap[country].domain;
+    console.log(`[Using REAL subdomain] ${country} → ${replacement}`);
+  } else {
+    // Last resort: reconstruct preferred (but log warning)
+    if (currentUser?.code && currentUser?.expiry) {
+      const clean = cleanCodeForSubdomain(currentUser.code);
+      const ymd = currentUser.expiry.replace(/-/g, '').slice(0,8);
+      replacement = `${country}${clean}${ymd}.${DNS_ZONES[0].mainDomain}`;
+      console.warn(`[Reconstructed fallback] ${country} → ${replacement}`);
     }
+    console.warn(`No subdomain found for ${country} – using IP: ${serverItem.ip}`);
+  }
 
-    return config.replace(/random-domain/gi, replacement);    
-}    
+  return config.replace(/random-domain/gi, replacement);
+}
 
 // ================== MAIN DATA LOADER ==================    
 async function loadData() {    
