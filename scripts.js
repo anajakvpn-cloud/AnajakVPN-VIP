@@ -540,6 +540,52 @@ async function loadData() {
     }    
 }    
 
+// ================== CLEAR CACHE HELPER ==================
+function clearAppCache() {
+    // Clear all app-related localStorage
+    const keysToClear = [
+        'autoLoginData',
+        'subdomainMap',
+        'readNotifications',
+        'userAvatarIcon',
+        'userAvatarColor'
+    ];
+
+    keysToClear.forEach(key => {
+        localStorage.removeItem(key);
+    });
+
+    // Reset in-memory variables
+    subdomainMap = {};
+    readNotifications = [];
+    currentUser = null;
+    hasSeenWarning = false;
+
+    console.log('🧹 App cache cleared successfully');
+}
+
+// ================== LOGOUT FUNCTION (UPDATED) ==================
+function logout(silent = false) {
+    if (!silent && !confirm('តើអ្នកចង់ចាកចេញមែនទេ?')) return;
+
+    // Clear cache before UI changes
+    clearAppCache();
+
+    document.getElementById('app-content').classList.add('hidden');
+    document.getElementById('login-view').classList.remove('hidden');
+    document.getElementById('bottom-nav').classList.add('hidden');
+    document.getElementById('server-stats')?.classList.add('hidden');
+
+    document.getElementById('login-code').value = '';
+    document.getElementById('login-error').classList.add('hidden');
+
+    showToast('បានចាកចេញ និងសម្អាត cache រួចរាល់');
+
+    setTimeout(() => {
+        location.reload(); // Force fresh reload
+    }, 400);
+}
+
 // ================== LOGIN SYSTEM ==================    
 function checkLoginCode() {    
     const input = document.getElementById('login-code').value.trim();    
@@ -597,78 +643,72 @@ function checkLoginCode() {
     }    
 }    
 
-function attemptAutoLogin() {    
-    const saved = localStorage.getItem('autoLoginData');    
-    if (!saved) return;    
+// ================== ATTEMPT AUTO LOGIN (UPDATED) ==================
+function attemptAutoLogin() {
+    const saved = localStorage.getItem('autoLoginData');
+    if (!saved) return;
 
-    try {    
-        const data = JSON.parse(saved);    
-        const now = Date.now();    
+    try {
+        const data = JSON.parse(saved);
+        const now = Date.now();
 
-        if (now - data.savedAt > REMEMBER_DURATION_MS) {    
-            localStorage.removeItem('autoLoginData');    
-            return;    
-        }    
+        // Check if remember duration has expired
+        if (now - data.savedAt > REMEMBER_DURATION_MS) {
+            console.log('Auto-login expired (remember duration)');
+            clearAppCache();                    // ← Clear all cache
+            return;
+        }
 
-        const today = new Date();    
-        today.setHours(23, 59, 59, 999);    
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
 
-        const found = validCodes.find(c =>     
+        const found = validCodes.find(c => 
             c.code.toUpperCase() === data.code.toUpperCase() &&    
-            new Date(c.expiry_date) >= today    
-        );    
+            new Date(c.expiry_date) >= today
+        );
 
-        if (found) {    
-            currentUser = { code: found.code, expiry: found.expiry_date };    
+        if (found) {
+            // Successful auto-login
+            currentUser = { 
+                code: found.code, 
+                expiry: found.expiry_date 
+            };
 
-            document.getElementById('user-code-display').textContent = found.code;    
-            document.getElementById('expiry-display').textContent =    
+            document.getElementById('user-code-display').textContent = found.code;
+            document.getElementById('expiry-display').textContent = 
                 new Date(found.expiry_date).toLocaleDateString('km-KH', {     
-                    day: 'numeric', month: 'long', year: 'numeric'     
-                });    
+                    day: 'numeric', 
+                    month: 'long', 
+                    year: 'numeric'     
+                });
 
-            document.getElementById('login-view').classList.add('hidden');    
-            document.getElementById('app-content').classList.remove('hidden');    
-            document.getElementById('bottom-nav').classList.remove('hidden');    
+            document.getElementById('login-view').classList.add('hidden');
+            document.getElementById('app-content').classList.remove('hidden');
+            document.getElementById('bottom-nav').classList.remove('hidden');
 
-            setRandomUserAvatar();    
-            showMainHeaderElements();    
+            setRandomUserAvatar();
+            showMainHeaderElements();
 
-            if (!hasSeenWarning) {    
-                document.getElementById('warning-modal').classList.add('show');    
-                hasSeenWarning = true;    
-            }    
-        } else {    
-            localStorage.removeItem('autoLoginData');    
-        }    
-    } catch (e) {    
-        console.warn("Auto-login failed:", e);    
-        localStorage.removeItem('autoLoginData');    
-    }    
-}    
+            if (!hasSeenWarning) {
+                document.getElementById('warning-modal').classList.add('show');
+                hasSeenWarning = true;
+            }
 
-function logout(silent = false) {
-    if (!silent && !confirm('តើអ្នកចង់ចាកចេញមែនទេ?')) return;
-
-    currentUser = null;
-    hasSeenWarning = false;
-    localStorage.removeItem('autoLoginData');
-    localStorage.removeItem('subdomainMap');
-    subdomainMap = {};
-
-    document.getElementById('app-content').classList.add('hidden');
-    document.getElementById('login-view').classList.remove('hidden');
-    document.getElementById('bottom-nav').classList.add('hidden');
-    document.getElementById('server-stats')?.classList.add('hidden');
-
-    document.getElementById('login-code').value = '';
-    document.getElementById('login-error').classList.add('hidden');
-
-    setTimeout(() => {
-        location.reload();
-    }, 300);
+            console.log('✅ Auto-login successful');
+        } 
+        else {
+            // Code exists but expired or invalid
+            console.log('Auto-login failed: Code expired or not found');
+            clearAppCache();                    // ← Clear all cache
+            localStorage.removeItem('autoLoginData');
+        }
+    } 
+    catch (e) {
+        console.warn("Auto-login failed (parse error):", e);
+        clearAppCache();                        // ← Clear all cache
+        localStorage.removeItem('autoLoginData');
+    }
 }
-    
 // ================== WARNING MODAL ==================    
 async function closeWarningModal() {    
     document.getElementById('warning-modal').classList.remove('show');    
