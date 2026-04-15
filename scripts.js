@@ -1,7 +1,7 @@
 // scripts.js - AnajakVPN Client Frontend    
 // Last major update: January 2026    
 // Updated: January 15, 2026 - Fixed subdomain replacement instead of IP when copying config  
-const WORKER_URL = "https://anajakvip.panda-hshark.workers.dev";    
+const WORKER_URL = "https://anajakvpnvip.panda-hshark.workers.dev";    
 const MAIN_DOMAIN = "anajakvpnvip.filegear-sg.me";  // Used to reconstruct expected subdomains
 
 let validCodes = [];    
