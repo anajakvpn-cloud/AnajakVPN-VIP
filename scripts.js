@@ -254,29 +254,37 @@ function buildSubdomainMap(code, expiry_date) {
 async function prewarmUserSubdomains(code, expiry_date) {
   if (!code || !expiry_date) return false;
 
+  // Normalize code (strip @ / spaces) — must match worker normalizeCode
+  let normCode = String(code).trim();
+  if (normCode.startsWith('@')) normCode = normCode.slice(1);
+  normCode = normCode.toUpperCase().replace(/\s+/g, '');
+  const normExpiry = String(expiry_date).trim();
+
   // Always build local map first so copy works even if DNS API fails
-  buildSubdomainMap(code, expiry_date);
+  buildSubdomainMap(normCode, normExpiry);
 
   try {
     const res = await fetch(`${WORKER_URL}/prewarm-subdomains`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        code: code.trim().toUpperCase(),
-        expiry_date: expiry_date.trim()
+        code: normCode,
+        expiry_date: normExpiry
       })
     });
 
+    let data = null;
+    try { data = await res.json(); } catch (_) {}
+
     if (!res.ok) {
-      console.warn('Prewarm request failed:', res.status);
-      // Local map already built — still usable for config copy
+      const errMsg = (data && data.error) || ('HTTP ' + res.status);
+      console.warn('Prewarm request failed:', res.status, errMsg);
       return Object.keys(subdomainMap).length > 0;
     }
 
-    const data = await res.json();
     console.log('Prewarm result:', data);
 
-    if (data.success && Array.isArray(data.domains) && data.domains.length) {
+    if (data && data.success && Array.isArray(data.domains) && data.domains.length) {
       data.domains.forEach(fullDomain => {
         const part = String(fullDomain || '').split('.')[0] || '';
         const cc = part.slice(0, 2).toLowerCase();
@@ -287,10 +295,15 @@ async function prewarmUserSubdomains(code, expiry_date) {
       localStorage.setItem('subdomainMap', JSON.stringify(subdomainMap));
     }
 
-    return data.success === true || Object.keys(subdomainMap).length > 0;
+    if (data && data.success === true) {
+      if ((data.failed || 0) > 0) {
+        console.warn('Prewarm partial failures:', data.failed_details || data.failed);
+      }
+      return true;
+    }
+    return Object.keys(subdomainMap).length > 0;
   } catch (err) {
     console.error('Prewarm error:', err);
-    // Local map still available
     return Object.keys(subdomainMap).length > 0;
   }
 }
