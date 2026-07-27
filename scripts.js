@@ -1,7 +1,8 @@
 // scripts.js - AnajakVPN Client Frontend    
 // Last major update: January 2026    
-// Updated: January 15, 2026 - Fixed subdomain replacement instead of IP when copying config  
-const WORKER_URL = "https://anajakvpnvip.panda-hshark.workers.dev";    
+// Updated: July 2026 - Data source switched to lingering-mountain JSON endpoint
+const WORKER_URL = "https://anajakvpnvip.panda-hshark.workers.dev";
+const DATA_JSON_URL = "https://lingering-mountain-1d24.panda-hshark.workers.dev/json";
 const MAIN_DOMAIN = "anajakvpnvip.filegear-sg.me";  // Used to reconstruct expected subdomains
 
 let validCodes = [];    
@@ -138,49 +139,33 @@ const DevToolsDetector = (function() {
     };    
 })();    
 
-// ================== FETCH LAST COMMIT DATE ==================    
-async function fetchJsonLastModified() {    
-    try {    
-        const fileInfoRes = await fetch(`${WORKER_URL}/file-info`);    
-        if (!fileInfoRes.ok) return null;    
+// ================== LAST UPDATE DATE ==================
+// GitLab commit endpoints removed — use Last-Modified header from data source, or now
+async function fetchJsonLastModified() {
+    try {
+        const res = await fetch(DATA_JSON_URL, { method: 'HEAD', cache: 'no-cache' });
+        if (!res.ok) return null;
+        const lm = res.headers.get('Last-Modified') || res.headers.get('Date');
+        return lm ? new Date(lm) : null;
+    } catch (err) {
+        console.warn("Could not fetch last modified date:", err);
+        return null;
+    }
+}
 
-        const fileData = await fileInfoRes.json();    
-        const lastCommitId = fileData.last_commit_id;    
+async function updateLastUpdateDate() {
+    const lastModified = await fetchJsonLastModified();
+    const span = document.querySelector('#last-update span');
+    if (!span) return;
 
-        const commitRes = await fetch(`${WORKER_URL}/commit/${lastCommitId}`);    
-        if (!commitRes.ok) return null;    
-
-        const commitData = await commitRes.json();    
-        return new Date(commitData.committed_date);    
-    } catch (err) {    
-        console.warn("Could not fetch last modified date:", err);    
-        return null;    
-    }    
-}    
-
-async function updateLastUpdateDate() {    
-    const lastModified = await fetchJsonLastModified();    
-    const span = document.querySelector('#last-update span');    
-    if (!span) return;    
-
-    if (lastModified) {    
-        span.textContent = lastModified.toLocaleDateString('km-KH', {    
-            year: 'numeric',    
-            month: 'long',    
-            day: 'numeric',    
-            hour: '2-digit',    
-            minute: '2-digit'    
-        });    
-    } else {    
-        const now = new Date();    
-        span.textContent = now.toLocaleDateString('km-KH', {    
-            year: 'numeric',    
-            month: 'long',    
-            day: 'numeric',    
-            hour: '2-digit',    
-            minute: '2-digit'    
-        });    
-    }    
+    const date = lastModified || new Date();
+    span.textContent = date.toLocaleDateString('km-KH', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
 }    
 
 // ================== HEADER VISIBILITY HELPERS ==================    
@@ -509,9 +494,16 @@ async function loadData() {
     }
 
     try {
-        const rawUrl = `${WORKER_URL}/data`;
-        const res = await fetch(rawUrl, { cache: "no-cache" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        // Prefer direct JSON endpoint; fall back to worker /data proxy
+        let res;
+        try {
+            res = await fetch(DATA_JSON_URL, { cache: "no-cache" });
+            if (!res.ok) throw new Error(`Direct JSON HTTP ${res.status}`);
+        } catch (directErr) {
+            console.warn("Direct JSON fetch failed, falling back to worker /data:", directErr);
+            res = await fetch(`${WORKER_URL}/data`, { cache: "no-cache" });
+            if (!res.ok) throw new Error(`Worker /data HTTP ${res.status}`);
+        }
 
         const text = await res.text();
         const data = JSON.parse(text);
@@ -542,7 +534,7 @@ async function loadData() {
         }
 
     } catch (err) {
-        console.error("Failed to load data from worker:", err);
+        console.error("Failed to load data:", err);
         hideGlobalLoading();
         if (loginView) loginView.classList.remove('hidden');
         showToast('មានបញ្ហាផ្ទុកទិន្នន័យ – សូម refresh ទំព័រ');
