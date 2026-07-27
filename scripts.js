@@ -206,8 +206,56 @@ function hideGlobalLoading() {
 }
 
 // ================== PREWARM ALL SUBDOMAINS ==================
+// Build subdomain map locally (must match worker cleanCodeForSubdomain: lowercase alnum)
+function cleanCodeForSubdomain(code) {
+  return String(code || '').trim().replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+}
+
+function yyyymmddFromYmd(ymd) {
+  return String(ymd || '').trim().replace(/-/g, '').slice(0, 8);
+}
+
+function buildSubdomainForCountry(country, code, expiry_date) {
+  const cc = String(country || 'kh').trim().toLowerCase();
+  const clean = cleanCodeForSubdomain(code);
+  const yyyymmdd = yyyymmddFromYmd(expiry_date);
+  if (!cc || !clean || !yyyymmdd) return '';
+  return `${cc}${clean}${yyyymmdd}.${MAIN_DOMAIN}`;
+}
+
+function buildSubdomainMap(code, expiry_date) {
+  if (!code || !expiry_date) return {};
+
+  const map = {};
+  const countries = [...new Set(
+    (allServers || []).map(s =>
+      String(s.countrycode || s.country || 'kh').trim().toLowerCase()
+    ).filter(Boolean)
+  )];
+
+  // Always include default
+  if (!countries.includes('kh')) countries.push('kh');
+
+  countries.forEach(cc => {
+    const domain = buildSubdomainForCountry(cc, code, expiry_date);
+    if (domain) map[cc] = domain;
+  });
+
+  subdomainMap = map;
+  try {
+    localStorage.setItem('subdomainMap', JSON.stringify(subdomainMap));
+  } catch (e) {
+    console.warn('Failed to persist subdomainMap', e);
+  }
+  console.log('[SubdomainMap] built', Object.keys(map).length, 'entries', map);
+  return map;
+}
+
 async function prewarmUserSubdomains(code, expiry_date) {
   if (!code || !expiry_date) return false;
+
+  // Always build local map first so copy works even if DNS API fails
+  buildSubdomainMap(code, expiry_date);
 
   try {
     const res = await fetch(`${WORKER_URL}/prewarm-subdomains`, {
@@ -221,47 +269,29 @@ async function prewarmUserSubdomains(code, expiry_date) {
 
     if (!res.ok) {
       console.warn('Prewarm request failed:', res.status);
-      return false;
+      // Local map already built — still usable for config copy
+      return Object.keys(subdomainMap).length > 0;
     }
 
     const data = await res.json();
     console.log('Prewarm result:', data);
 
-    // If worker returns list of domains (recommended future improvement)
-    if (data.success && Array.isArray(data.domains)) {
+    if (data.success && Array.isArray(data.domains) && data.domains.length) {
       data.domains.forEach(fullDomain => {
-        const cc = fullDomain.split('.')[0].slice(0, 2).toLowerCase();
+        const part = String(fullDomain || '').split('.')[0] || '';
+        const cc = part.slice(0, 2).toLowerCase();
         if (cc.length === 2) {
           subdomainMap[cc] = fullDomain;
         }
       });
-    } 
-    // Fallback: reconstruct domains ourselves from known countries
-    else if (data.success) {
-      const cleanCode = code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-      const yyyymmdd = expiry_date.replace(/-/g, '').slice(0, 8);
-
-      const countries = [...new Set(
-        allServers.map(s => 
-          String(s.countrycode || s.country || 'kh')
-            .trim()
-            .toLowerCase()
-        ).filter(Boolean)
-      )];
-
-      countries.forEach(cc => {
-        const domain = `${cc}${cleanCode}${yyyymmdd}.${MAIN_DOMAIN}`;
-        subdomainMap[cc] = domain;
-      });
+      localStorage.setItem('subdomainMap', JSON.stringify(subdomainMap));
     }
 
-    // Persist to localStorage
-    localStorage.setItem('subdomainMap', JSON.stringify(subdomainMap));
-
-    return data.success === true;
+    return data.success === true || Object.keys(subdomainMap).length > 0;
   } catch (err) {
     console.error('Prewarm error:', err);
-    return false;
+    // Local map still available
+    return Object.keys(subdomainMap).length > 0;
   }
 }
 
@@ -450,28 +480,38 @@ function closeIPModal() {
 }    
 
 // ================== CONFIG PLACEHOLDER REPLACEMENT (FIXED) ==================    
-async function replacePlaceholdersInConfig(text, serverItem) {    
-    let config = text;    
+async function replacePlaceholdersInConfig(text, serverItem) {
+    let config = text;
 
-    config = config.replace(/r+andom-domain|andom-domain+|(random-domain)+/gi, 'random-domain');    
+    config = config.replace(/r+andom-domain|andom-domain+|(random-domain)+/gi, 'random-domain');
 
-    const hasRandomDomain = /random-domain/gi.test(config);    
-    if (!hasRandomDomain) return config;    
-
-    let replacement = serverItem.ip || '';
+    const hasRandomDomain = /random-domain/gi.test(config);
+    if (!hasRandomDomain) return config;
 
     const country = String(serverItem.countrycode || serverItem.country || 'kh')
         .trim()
         .toLowerCase();
 
-    if (subdomainMap[country]) {
-        replacement = subdomainMap[country];
-        console.log(`[Subdomain used] ${country} → ${replacement}`);
-    } else {
-        console.warn(`[No subdomain] ${country} → falling back to IP: ${replacement}`);
+    let replacement = subdomainMap[country] || '';
+
+    // Generate on the fly from current user if map missing this country
+    if (!replacement && currentUser?.code && currentUser?.expiry) {
+        replacement = buildSubdomainForCountry(country, currentUser.code, currentUser.expiry);
+        if (replacement) {
+            subdomainMap[country] = replacement;
+            try { localStorage.setItem('subdomainMap', JSON.stringify(subdomainMap)); } catch {}
+        }
     }
 
-    return config.replace(/random-domain/gi, replacement);    
+    // Last resort: IP (old behaviour)
+    if (!replacement) {
+        replacement = serverItem.ip || '';
+        console.warn(`[No subdomain] ${country} → falling back to IP: ${replacement}`);
+    } else {
+        console.log(`[Subdomain used] ${country} → ${replacement}`);
+    }
+
+    return config.replace(/random-domain/gi, replacement);
 }    
 
 // ================== MAIN DATA LOADER ==================    
@@ -637,7 +677,8 @@ function checkLoginCode() {
         errorEl.classList.add('hidden');    
         showMainHeaderElements();    
 
-        subdomainMap = {};    
+        // Build subdomain map immediately (prewarm also runs after warning modal)
+        buildSubdomainMap(found.code, found.expiry_date);
     } else {    
         errorEl.textContent = 'កូដមិនត្រឹមត្រូវ ឬផុតកំណត់ហើយ!';    
         errorEl.classList.remove('hidden');    
@@ -689,6 +730,9 @@ function attemptAutoLogin() {
 
             setRandomUserAvatar();
             showMainHeaderElements();
+
+            // Ensure subdomain map is ready for config copy
+            buildSubdomainMap(found.code, found.expiry_date);
 
             if (!hasSeenWarning) {
                 document.getElementById('warning-modal').classList.add('show');
