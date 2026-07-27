@@ -203,9 +203,16 @@ function showMainHeaderElements() {
 }    
 
 // ================== GLOBAL LOADING OVERLAY ==================
-function showGlobalLoading() {
+function showGlobalLoading(title = 'កំពុងផ្ទុក...', subtitle = 'សូមរង់ចាំបន្តិច') {
   const overlay = document.getElementById('global-loading-overlay');
-  if (overlay) overlay.classList.remove('hidden');
+  if (!overlay) return;
+
+  const titleEl = document.getElementById('global-loading-title');
+  const subtitleEl = document.getElementById('global-loading-subtitle');
+  if (titleEl) titleEl.textContent = title;
+  if (subtitleEl) subtitleEl.textContent = subtitle;
+
+  overlay.classList.remove('hidden');
 }
 
 function hideGlobalLoading() {
@@ -483,62 +490,64 @@ async function replacePlaceholdersInConfig(text, serverItem) {
 }    
 
 // ================== MAIN DATA LOADER ==================    
-async function loadData() {    
-    await new Promise(resolve => setTimeout(resolve, 1800));    
+async function loadData() {
+    // Show loading overlay first (covers login UI until data is ready)
+    showGlobalLoading('កំពុងផ្ទុកទិន្នន័យ...', 'សូមរង់ចាំបន្តិច');
 
-    if (DevToolsDetector.isOpen()) {    
-        console.warn("[Protection] DevTools detected → Blocking data load");    
+    // Keep login view hidden until data is ready
+    const loginView = document.getElementById('login-view');
+    if (loginView) loginView.classList.add('hidden');
 
-        const appContent = document.getElementById('app-content');    
-        if (appContent && !appContent.querySelector('.loading-message')) {    
-            appContent.innerHTML = `    
-                <div class="min-h-screen flex items-center justify-center bg-gray-950 text-gray-600">    
-                    <div class="text-center">    
-                        <div class="animate-pulse text-lg mb-4">កំពុងផ្ទុក...</div>    
-                        <div class="text-sm opacity-70">(សូមកុំបើក Developer Tools)</div>    
-                    </div>    
-                </div>    
-            `;    
-        }    
-        return;    
-    }    
+    await new Promise(resolve => setTimeout(resolve, 800));
 
-    try {    
-        const rawUrl = `${WORKER_URL}/data`;    
-        const res = await fetch(rawUrl, { cache: "no-cache" });    
+    if (DevToolsDetector.isOpen()) {
+        console.warn("[Protection] DevTools detected → Blocking data load");
+        hideGlobalLoading();
+        if (loginView) loginView.classList.remove('hidden');
+        // ... (devtools block UI)
+        return;
+    }
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);    
+    try {
+        const rawUrl = `${WORKER_URL}/data`;
+        const res = await fetch(rawUrl, { cache: "no-cache" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-        const text = await res.text();    
-        const data = JSON.parse(text);    
+        const text = await res.text();
+        const data = JSON.parse(text);
 
-        // Reload subdomain map on every data load (in case cleared)
         try {
             const saved = localStorage.getItem('subdomainMap');
             if (saved) subdomainMap = JSON.parse(saved);
         } catch {}
 
-        validCodes = data.validCodes || [];    
-        allServers = data.allServers || [];    
-        categoryTitles = data.categoryTitles || {};    
-        notifications = data.notifications || [];    
-        mainMenuItems = data.mainMenuItems || [];    
+        validCodes = data.validCodes || [];
+        allServers = data.allServers || [];
+        categoryTitles = data.categoryTitles || {};
+        notifications = data.notifications || [];
+        mainMenuItems = data.mainMenuItems || [];
 
-        initApp();    
-        updateNotificationBadge();    
-        renderMainMenu();    
-        attemptAutoLogin();    
-        await updateLastUpdateDate();    
+        initApp();
+        updateNotificationBadge();
+        renderMainMenu();
+        await updateLastUpdateDate();
 
-    } catch (err) {    
-        console.error("Failed to load data from worker:", err);    
-            
-        const statsTimeEl = document.getElementById('stats-update-time');    
-        if (statsTimeEl) {    
-            statsTimeEl.innerHTML = 'មានបញ្ហា <span class="text-red-400">⚠️</span>';    
-        }    
-    }    
-}    
+        // Data ready → hide overlay, then show login or auto-login
+        hideGlobalLoading();
+        attemptAutoLogin();
+
+        // If auto-login did not succeed, show login UI
+        if (!currentUser && loginView) {
+            loginView.classList.remove('hidden');
+        }
+
+    } catch (err) {
+        console.error("Failed to load data from worker:", err);
+        hideGlobalLoading();
+        if (loginView) loginView.classList.remove('hidden');
+        showToast('មានបញ្ហាផ្ទុកទិន្នន័យ – សូម refresh ទំព័រ');
+    }
+}
 
 // ================== CLEAR CACHE HELPER ==================
 function clearAppCache() {
@@ -718,8 +727,7 @@ async function closeWarningModal() {
         return;
     }
 
-    showGlobalLoading();
-    showToast('កំពុងរៀបចំ Server សម្រាប់អ្នក... សូមរង់ចាំបន្តិច');
+    showGlobalLoading('កំពុងរៀបចំ server សម្រាប់អ្នក...', 'សូមរង់ចាំបន្តិច (10-30 វិនាទី)');
 
     try {
         const success = await prewarmUserSubdomains(currentUser.code, currentUser.expiry);
