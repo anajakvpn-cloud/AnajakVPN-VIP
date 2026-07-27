@@ -1,8 +1,7 @@
 // scripts.js - AnajakVPN Client Frontend    
-// Last major update: July 2026    
-// Fully switched to Cloudflare Worker (no GitLab)
-
-const WORKER_URL = "https://anajakvipadmin.panda-hshark.workers.dev";    
+// Last major update: January 2026    
+// Updated: January 15, 2026 - Fixed subdomain replacement instead of IP when copying config  
+const WORKER_URL = "https://anajakvpnvip.panda-hshark.workers.dev";    
 const MAIN_DOMAIN = "anajakvpnvip.filegear-sg.me";  // Used to reconstruct expected subdomains
 
 let validCodes = [];    
@@ -26,7 +25,7 @@ try {
     console.warn("Failed to parse subdomainMap from localStorage", e);
 }
 
-const REMEMBER_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const REMEMBER_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days    
 
 // ================== RANDOM USER AVATAR ==================    
 const userIcons = [    
@@ -159,20 +158,30 @@ async function fetchJsonLastModified() {
     }    
 }    
 
-// ================== LAST UPDATE DATE ==================    
-function updateLastUpdateDate() {    
+async function updateLastUpdateDate() {    
+    const lastModified = await fetchJsonLastModified();    
     const span = document.querySelector('#last-update span');    
     if (!span) return;    
 
-    const now = new Date();    
-    span.textContent = now.toLocaleDateString('km-KH', {    
-        year: 'numeric',    
-        month: 'long',    
-        day: 'numeric',    
-        hour: '2-digit',    
-        minute: '2-digit'    
-    });    
-}
+    if (lastModified) {    
+        span.textContent = lastModified.toLocaleDateString('km-KH', {    
+            year: 'numeric',    
+            month: 'long',    
+            day: 'numeric',    
+            hour: '2-digit',    
+            minute: '2-digit'    
+        });    
+    } else {    
+        const now = new Date();    
+        span.textContent = now.toLocaleDateString('km-KH', {    
+            year: 'numeric',    
+            month: 'long',    
+            day: 'numeric',    
+            hour: '2-digit',    
+            minute: '2-digit'    
+        });    
+    }    
+}    
 
 // ================== HEADER VISIBILITY HELPERS ==================    
 function hideMainHeaderElements() {    
@@ -481,61 +490,49 @@ async function replacePlaceholdersInConfig(text, serverItem) {
 }    
 
 // ================== MAIN DATA LOADER ==================    
-// ================== MAIN DATA LOADER ==================    
 async function loadData() {
-    // Show loading overlay first
+    // Show loading overlay first (covers login UI until data is ready)
     showGlobalLoading('កំពុងផ្ទុកទិន្នន័យ...', 'សូមរង់ចាំបន្តិច');
 
     // Keep login view hidden until data is ready
     const loginView = document.getElementById('login-view');
     if (loginView) loginView.classList.add('hidden');
 
-    await new Promise(resolve => setTimeout(resolve, 600));
+    await new Promise(resolve => setTimeout(resolve, 800));
 
     if (DevToolsDetector.isOpen()) {
         console.warn("[Protection] DevTools detected → Blocking data load");
         hideGlobalLoading();
         if (loginView) loginView.classList.remove('hidden');
+        // ... (devtools block UI)
         return;
     }
 
     try {
-        // === Fetch from new Worker /json ===
-        const res = await fetch(`${WORKER_URL}/json`, { 
-            cache: "no-cache",
-            headers: {
-                "Accept": "application/json"
-            }
-        });
-
+        const rawUrl = `${WORKER_URL}/data`;
+        const res = await fetch(rawUrl, { cache: "no-cache" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-        const data = await res.json();
+        const text = await res.text();
+        const data = JSON.parse(text);
 
-        // Handle case when worker returns { success: false }
-        if (data.success === false) {
-            throw new Error(data.message || "No JSON data available");
-        }
-
-        // Restore subdomain map
         try {
             const saved = localStorage.getItem('subdomainMap');
             if (saved) subdomainMap = JSON.parse(saved);
         } catch {}
 
-        // Assign data
-        validCodes     = data.validCodes     || [];
-        allServers     = data.allServers     || [];
+        validCodes = data.validCodes || [];
+        allServers = data.allServers || [];
         categoryTitles = data.categoryTitles || {};
-        notifications  = data.notifications  || [];
-        mainMenuItems  = data.mainMenuItems  || [];
+        notifications = data.notifications || [];
+        mainMenuItems = data.mainMenuItems || [];
 
         initApp();
         updateNotificationBadge();
         renderMainMenu();
-        updateLastUpdateDate();
+        await updateLastUpdateDate();
 
-        // Data ready
+        // Data ready → hide overlay, then show login or auto-login
         hideGlobalLoading();
         attemptAutoLogin();
 
