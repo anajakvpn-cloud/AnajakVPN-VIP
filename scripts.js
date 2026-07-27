@@ -1,8 +1,7 @@
 // scripts.js - AnajakVPN Client Frontend    
 // Last major update: January 2026    
-// Updated: July 2026 - Data source switched to lingering-mountain JSON endpoint
-const WORKER_URL = "https://anajakvpnvip.panda-hshark.workers.dev";
-const DATA_JSON_URL = "https://lingering-mountain-1d24.panda-hshark.workers.dev/json";
+// Updated: January 15, 2026 - Fixed subdomain replacement instead of IP when copying config  
+const WORKER_URL = "https://anajakvpnvip.panda-hshark.workers.dev";    
 const MAIN_DOMAIN = "anajakvpnvip.filegear-sg.me";  // Used to reconstruct expected subdomains
 
 let validCodes = [];    
@@ -139,33 +138,49 @@ const DevToolsDetector = (function() {
     };    
 })();    
 
-// ================== LAST UPDATE DATE ==================
-// GitLab commit endpoints removed — use Last-Modified header from data source, or now
-async function fetchJsonLastModified() {
-    try {
-        const res = await fetch(DATA_JSON_URL, { method: 'HEAD', cache: 'no-cache' });
-        if (!res.ok) return null;
-        const lm = res.headers.get('Last-Modified') || res.headers.get('Date');
-        return lm ? new Date(lm) : null;
-    } catch (err) {
-        console.warn("Could not fetch last modified date:", err);
-        return null;
-    }
-}
+// ================== FETCH LAST COMMIT DATE ==================    
+async function fetchJsonLastModified() {    
+    try {    
+        const fileInfoRes = await fetch(`${WORKER_URL}/file-info`);    
+        if (!fileInfoRes.ok) return null;    
 
-async function updateLastUpdateDate() {
-    const lastModified = await fetchJsonLastModified();
-    const span = document.querySelector('#last-update span');
-    if (!span) return;
+        const fileData = await fileInfoRes.json();    
+        const lastCommitId = fileData.last_commit_id;    
 
-    const date = lastModified || new Date();
-    span.textContent = date.toLocaleDateString('km-KH', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
+        const commitRes = await fetch(`${WORKER_URL}/commit/${lastCommitId}`);    
+        if (!commitRes.ok) return null;    
+
+        const commitData = await commitRes.json();    
+        return new Date(commitData.committed_date);    
+    } catch (err) {    
+        console.warn("Could not fetch last modified date:", err);    
+        return null;    
+    }    
+}    
+
+async function updateLastUpdateDate() {    
+    const lastModified = await fetchJsonLastModified();    
+    const span = document.querySelector('#last-update span');    
+    if (!span) return;    
+
+    if (lastModified) {    
+        span.textContent = lastModified.toLocaleDateString('km-KH', {    
+            year: 'numeric',    
+            month: 'long',    
+            day: 'numeric',    
+            hour: '2-digit',    
+            minute: '2-digit'    
+        });    
+    } else {    
+        const now = new Date();    
+        span.textContent = now.toLocaleDateString('km-KH', {    
+            year: 'numeric',    
+            month: 'long',    
+            day: 'numeric',    
+            hour: '2-digit',    
+            minute: '2-digit'    
+        });    
+    }    
 }    
 
 // ================== HEADER VISIBILITY HELPERS ==================    
@@ -188,16 +203,9 @@ function showMainHeaderElements() {
 }    
 
 // ================== GLOBAL LOADING OVERLAY ==================
-function showGlobalLoading(title = 'កំពុងផ្ទុក...', subtitle = 'សូមរង់ចាំបន្តិច') {
+function showGlobalLoading() {
   const overlay = document.getElementById('global-loading-overlay');
-  if (!overlay) return;
-
-  const titleEl = document.getElementById('global-loading-title');
-  const subtitleEl = document.getElementById('global-loading-subtitle');
-  if (titleEl) titleEl.textContent = title;
-  if (subtitleEl) subtitleEl.textContent = subtitle;
-
-  overlay.classList.remove('hidden');
+  if (overlay) overlay.classList.remove('hidden');
 }
 
 function hideGlobalLoading() {
@@ -206,105 +214,62 @@ function hideGlobalLoading() {
 }
 
 // ================== PREWARM ALL SUBDOMAINS ==================
-// Build subdomain map locally (must match worker cleanCodeForSubdomain: lowercase alnum)
-function cleanCodeForSubdomain(code) {
-  return String(code || '').trim().replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-}
-
-function yyyymmddFromYmd(ymd) {
-  return String(ymd || '').trim().replace(/-/g, '').slice(0, 8);
-}
-
-function buildSubdomainForCountry(country, code, expiry_date) {
-  const cc = String(country || 'kh').trim().toLowerCase();
-  const clean = cleanCodeForSubdomain(code);
-  const yyyymmdd = yyyymmddFromYmd(expiry_date);
-  if (!cc || !clean || !yyyymmdd) return '';
-  return `${cc}${clean}${yyyymmdd}.${MAIN_DOMAIN}`;
-}
-
-function buildSubdomainMap(code, expiry_date) {
-  if (!code || !expiry_date) return {};
-
-  const map = {};
-  const countries = [...new Set(
-    (allServers || []).map(s =>
-      String(s.countrycode || s.country || 'kh').trim().toLowerCase()
-    ).filter(Boolean)
-  )];
-
-  // Always include default
-  if (!countries.includes('kh')) countries.push('kh');
-
-  countries.forEach(cc => {
-    const domain = buildSubdomainForCountry(cc, code, expiry_date);
-    if (domain) map[cc] = domain;
-  });
-
-  subdomainMap = map;
-  try {
-    localStorage.setItem('subdomainMap', JSON.stringify(subdomainMap));
-  } catch (e) {
-    console.warn('Failed to persist subdomainMap', e);
-  }
-  console.log('[SubdomainMap] built', Object.keys(map).length, 'entries', map);
-  return map;
-}
-
 async function prewarmUserSubdomains(code, expiry_date) {
   if (!code || !expiry_date) return false;
-
-  // Normalize code (strip @ / spaces) — must match worker normalizeCode
-  let normCode = String(code).trim();
-  if (normCode.startsWith('@')) normCode = normCode.slice(1);
-  normCode = normCode.toUpperCase().replace(/\s+/g, '');
-  const normExpiry = String(expiry_date).trim();
-
-  // Always build local map first so copy works even if DNS API fails
-  buildSubdomainMap(normCode, normExpiry);
 
   try {
     const res = await fetch(`${WORKER_URL}/prewarm-subdomains`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        code: normCode,
-        expiry_date: normExpiry
+        code: code.trim().toUpperCase(),
+        expiry_date: expiry_date.trim()
       })
     });
 
-    let data = null;
-    try { data = await res.json(); } catch (_) {}
-
     if (!res.ok) {
-      const errMsg = (data && data.error) || ('HTTP ' + res.status);
-      console.warn('Prewarm request failed:', res.status, errMsg);
-      return Object.keys(subdomainMap).length > 0;
+      console.warn('Prewarm request failed:', res.status);
+      return false;
     }
 
+    const data = await res.json();
     console.log('Prewarm result:', data);
 
-    if (data && data.success && Array.isArray(data.domains) && data.domains.length) {
+    // If worker returns list of domains (recommended future improvement)
+    if (data.success && Array.isArray(data.domains)) {
       data.domains.forEach(fullDomain => {
-        const part = String(fullDomain || '').split('.')[0] || '';
-        const cc = part.slice(0, 2).toLowerCase();
+        const cc = fullDomain.split('.')[0].slice(0, 2).toLowerCase();
         if (cc.length === 2) {
           subdomainMap[cc] = fullDomain;
         }
       });
-      localStorage.setItem('subdomainMap', JSON.stringify(subdomainMap));
+    } 
+    // Fallback: reconstruct domains ourselves from known countries
+    else if (data.success) {
+      const cleanCode = code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const yyyymmdd = expiry_date.replace(/-/g, '').slice(0, 8);
+
+      const countries = [...new Set(
+        allServers.map(s => 
+          String(s.countrycode || s.country || 'kh')
+            .trim()
+            .toLowerCase()
+        ).filter(Boolean)
+      )];
+
+      countries.forEach(cc => {
+        const domain = `${cc}${cleanCode}${yyyymmdd}.${MAIN_DOMAIN}`;
+        subdomainMap[cc] = domain;
+      });
     }
 
-    if (data && data.success === true) {
-      if ((data.failed || 0) > 0) {
-        console.warn('Prewarm partial failures:', data.failed_details || data.failed);
-      }
-      return true;
-    }
-    return Object.keys(subdomainMap).length > 0;
+    // Persist to localStorage
+    localStorage.setItem('subdomainMap', JSON.stringify(subdomainMap));
+
+    return data.success === true;
   } catch (err) {
     console.error('Prewarm error:', err);
-    return Object.keys(subdomainMap).length > 0;
+    return false;
   }
 }
 
@@ -493,106 +458,87 @@ function closeIPModal() {
 }    
 
 // ================== CONFIG PLACEHOLDER REPLACEMENT (FIXED) ==================    
-async function replacePlaceholdersInConfig(text, serverItem) {
-    let config = text;
+async function replacePlaceholdersInConfig(text, serverItem) {    
+    let config = text;    
 
-    config = config.replace(/r+andom-domain|andom-domain+|(random-domain)+/gi, 'random-domain');
+    config = config.replace(/r+andom-domain|andom-domain+|(random-domain)+/gi, 'random-domain');    
 
-    const hasRandomDomain = /random-domain/gi.test(config);
-    if (!hasRandomDomain) return config;
+    const hasRandomDomain = /random-domain/gi.test(config);    
+    if (!hasRandomDomain) return config;    
+
+    let replacement = serverItem.ip || '';
 
     const country = String(serverItem.countrycode || serverItem.country || 'kh')
         .trim()
         .toLowerCase();
 
-    let replacement = subdomainMap[country] || '';
-
-    // Generate on the fly from current user if map missing this country
-    if (!replacement && currentUser?.code && currentUser?.expiry) {
-        replacement = buildSubdomainForCountry(country, currentUser.code, currentUser.expiry);
-        if (replacement) {
-            subdomainMap[country] = replacement;
-            try { localStorage.setItem('subdomainMap', JSON.stringify(subdomainMap)); } catch {}
-        }
-    }
-
-    // Last resort: IP (old behaviour)
-    if (!replacement) {
-        replacement = serverItem.ip || '';
-        console.warn(`[No subdomain] ${country} → falling back to IP: ${replacement}`);
-    } else {
+    if (subdomainMap[country]) {
+        replacement = subdomainMap[country];
         console.log(`[Subdomain used] ${country} → ${replacement}`);
+    } else {
+        console.warn(`[No subdomain] ${country} → falling back to IP: ${replacement}`);
     }
 
-    return config.replace(/random-domain/gi, replacement);
+    return config.replace(/random-domain/gi, replacement);    
 }    
 
 // ================== MAIN DATA LOADER ==================    
-async function loadData() {
-    // Show loading overlay first (covers login UI until data is ready)
-    showGlobalLoading('កំពុងផ្ទុកទិន្នន័យ...', 'សូមរង់ចាំបន្តិច');
+async function loadData() {    
+    await new Promise(resolve => setTimeout(resolve, 1800));    
 
-    // Keep login view hidden until data is ready
-    const loginView = document.getElementById('login-view');
-    if (loginView) loginView.classList.add('hidden');
+    if (DevToolsDetector.isOpen()) {    
+        console.warn("[Protection] DevTools detected → Blocking data load");    
 
-    await new Promise(resolve => setTimeout(resolve, 800));
+        const appContent = document.getElementById('app-content');    
+        if (appContent && !appContent.querySelector('.loading-message')) {    
+            appContent.innerHTML = `    
+                <div class="min-h-screen flex items-center justify-center bg-gray-950 text-gray-600">    
+                    <div class="text-center">    
+                        <div class="animate-pulse text-lg mb-4">កំពុងផ្ទុក...</div>    
+                        <div class="text-sm opacity-70">(សូមកុំបើក Developer Tools)</div>    
+                    </div>    
+                </div>    
+            `;    
+        }    
+        return;    
+    }    
 
-    if (DevToolsDetector.isOpen()) {
-        console.warn("[Protection] DevTools detected → Blocking data load");
-        hideGlobalLoading();
-        if (loginView) loginView.classList.remove('hidden');
-        // ... (devtools block UI)
-        return;
-    }
+    try {    
+        const rawUrl = `${WORKER_URL}/data`;    
+        const res = await fetch(rawUrl, { cache: "no-cache" });    
 
-    try {
-        // Prefer direct JSON endpoint; fall back to worker /data proxy
-        let res;
-        try {
-            res = await fetch(DATA_JSON_URL, { cache: "no-cache" });
-            if (!res.ok) throw new Error(`Direct JSON HTTP ${res.status}`);
-        } catch (directErr) {
-            console.warn("Direct JSON fetch failed, falling back to worker /data:", directErr);
-            res = await fetch(`${WORKER_URL}/data`, { cache: "no-cache" });
-            if (!res.ok) throw new Error(`Worker /data HTTP ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);    
 
-        const text = await res.text();
-        const data = JSON.parse(text);
+        const text = await res.text();    
+        const data = JSON.parse(text);    
 
+        // Reload subdomain map on every data load (in case cleared)
         try {
             const saved = localStorage.getItem('subdomainMap');
             if (saved) subdomainMap = JSON.parse(saved);
         } catch {}
 
-        validCodes = data.validCodes || [];
-        allServers = data.allServers || [];
-        categoryTitles = data.categoryTitles || {};
-        notifications = data.notifications || [];
-        mainMenuItems = data.mainMenuItems || [];
+        validCodes = data.validCodes || [];    
+        allServers = data.allServers || [];    
+        categoryTitles = data.categoryTitles || {};    
+        notifications = data.notifications || [];    
+        mainMenuItems = data.mainMenuItems || [];    
 
-        initApp();
-        updateNotificationBadge();
-        renderMainMenu();
-        await updateLastUpdateDate();
+        initApp();    
+        updateNotificationBadge();    
+        renderMainMenu();    
+        attemptAutoLogin();    
+        await updateLastUpdateDate();    
 
-        // Data ready → hide overlay, then show login or auto-login
-        hideGlobalLoading();
-        attemptAutoLogin();
-
-        // If auto-login did not succeed, show login UI
-        if (!currentUser && loginView) {
-            loginView.classList.remove('hidden');
-        }
-
-    } catch (err) {
-        console.error("Failed to load data:", err);
-        hideGlobalLoading();
-        if (loginView) loginView.classList.remove('hidden');
-        showToast('មានបញ្ហាផ្ទុកទិន្នន័យ – សូម refresh ទំព័រ');
-    }
-}
+    } catch (err) {    
+        console.error("Failed to load data from worker:", err);    
+            
+        const statsTimeEl = document.getElementById('stats-update-time');    
+        if (statsTimeEl) {    
+            statsTimeEl.innerHTML = 'មានបញ្ហា <span class="text-red-400">⚠️</span>';    
+        }    
+    }    
+}    
 
 // ================== CLEAR CACHE HELPER ==================
 function clearAppCache() {
@@ -690,8 +636,7 @@ function checkLoginCode() {
         errorEl.classList.add('hidden');    
         showMainHeaderElements();    
 
-        // Build subdomain map immediately (prewarm also runs after warning modal)
-        buildSubdomainMap(found.code, found.expiry_date);
+        subdomainMap = {};    
     } else {    
         errorEl.textContent = 'កូដមិនត្រឹមត្រូវ ឬផុតកំណត់ហើយ!';    
         errorEl.classList.remove('hidden');    
@@ -744,9 +689,6 @@ function attemptAutoLogin() {
             setRandomUserAvatar();
             showMainHeaderElements();
 
-            // Ensure subdomain map is ready for config copy
-            buildSubdomainMap(found.code, found.expiry_date);
-
             if (!hasSeenWarning) {
                 document.getElementById('warning-modal').classList.add('show');
                 hasSeenWarning = true;
@@ -776,7 +718,8 @@ async function closeWarningModal() {
         return;
     }
 
-    showGlobalLoading('កំពុងរៀបចំ server សម្រាប់អ្នក...', 'សូមរង់ចាំបន្តិច (10-30 វិនាទី)');
+    showGlobalLoading();
+    showToast('កំពុងរៀបចំ Server សម្រាប់អ្នក... សូមរង់ចាំបន្តិច');
 
     try {
         const success = await prewarmUserSubdomains(currentUser.code, currentUser.expiry);
