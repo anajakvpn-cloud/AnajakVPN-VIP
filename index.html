@@ -71,17 +71,19 @@
     <!-- Login Screen -->
     <!-- Login Screen (hidden until data is loaded) -->
 <div id="login-view" class="container mx-auto px-5 py-10 max-w-md flex flex-col items-center justify-center min-h-screen hidden">
-        <h1 class="text-3xl font-bold text-purple-400 mb-10">ស្វាគមន៍</h1>
+        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-500 flex items-center justify-center mb-6 shadow-lg shadow-purple-900/40">
+            <i class="fas fa-shield-alt text-2xl text-white"></i>
+        </div>
+        <h1 class="text-3xl font-bold text-white mb-2 tracking-tight">AnajakVIP</h1>
+        <p class="text-sm text-gray-500 mb-10">ស្វាគមន៍ • បញ្ចូលកូដដើម្បីចូលប្រើ</p>
         
-        <div class="card-bg rounded-2xl p-8 w-full shadow-2xl">
-            <h2 class="text-xl font-semibold text-center mb-8 text-purple-300">បញ្ចូលកូដដើម្បីចូលប្រើ</h2>
-            
+        <div class="card-bg rounded-2xl p-7 w-full shadow-2xl border border-[#1f1f1f]">
             <input type="text" id="login-code" placeholder="វាយកូដរបស់អ្នក..." 
-                   class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-5 py-4 text-gray-100 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition mb-6 text-lg"
+                   class="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-4 text-gray-100 focus:outline-none focus:border-purple-500 transition mb-5 text-lg tracking-wide"
                    autocomplete="off">
             
             <button onclick="checkLoginCode()" 
-                    class="w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-xl transition font-medium shadow-lg text-lg">
+                    class="w-full bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white py-4 rounded-xl transition font-semibold shadow-lg shadow-purple-900/30 text-lg">
                 ចូលប្រើ
             </button>
             
@@ -95,48 +97,61 @@
         <div class="container mx-auto px-5 py-10 pb-28 max-w-md">
 
             <!-- User Info + Logout -->
-            <div class="flex items-center justify-between mb-8">
-                <div class="flex items-center space-x-4">
-                    <div id="random-user-avatar" class="w-14 h-14 rounded-full flex items-center justify-center shadow-lg text-3xl font-bold">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center space-x-3.5">
+                    <div id="random-user-avatar" class="w-12 h-12 rounded-full flex items-center justify-center shadow-lg text-2xl font-bold ring-2 ring-white/10">
                         <!-- Random emoji inserted by JS -->
                     </div>
                     <div>
-                        <p class="text-sm text-gray-400">ស្វាគមន៍</p>
-                        <p id="user-code-display" class="font-semibold text-purple-300 text-lg">User</p>
+                        <p class="text-xs text-gray-500">ស្វាគមន៍</p>
+                        <p id="user-code-display" class="font-semibold text-gray-100 text-base leading-tight">User</p>
                     </div>
                 </div>
                 
-                <button id="logout-btn" class="text-red-400 flex items-center space-x-2 hover:text-red-300 transition">
+                <button id="logout-btn" class="text-red-400/80 flex items-center space-x-1.5 hover:text-red-300 transition text-sm px-3 py-1.5 rounded-lg hover:bg-red-500/10">
                     <i class="fas fa-sign-out-alt"></i>
-                    <span class="text-base">ចាកចេញ</span>
+                    <span>ចាកចេញ</span>
                 </button>
             </div>
 
-            <!-- Expiry Information Card -->
-            <div class="card-bg rounded-xl p-5 mb-8 flex items-center justify-between">
-                <div class="flex items-center space-x-4">
-                    <i class="fas fa-calendar-check text-3xl text-green-400"></i>
-                    <div>
-                        <p class="text-sm text-gray-500">ផុតកំណត់ថ្ងៃទី</p>
-                        <p id="expiry-display" class="font-semibold text-green-300 text-lg">—</p>
+            <!-- Expiry Circular Progress Card -->
+            <div class="card-bg rounded-2xl p-5 mb-8 expiry-card">
+                <div class="flex items-center gap-5">
+                    <!-- Circular Progress -->
+                    <div class="expiry-progress-wrap relative flex-shrink-0">
+                        <svg class="expiry-ring" width="72" height="72" viewBox="0 0 72 72">
+                            <circle class="expiry-ring-bg" cx="36" cy="36" r="30" />
+                            <circle class="expiry-ring-fill" id="expiry-ring-fill" cx="36" cy="36" r="30"
+                                    stroke-dasharray="188.5" stroke-dashoffset="188.5" />
+                        </svg>
+                        <div class="expiry-center absolute inset-0 flex flex-col items-center justify-center">
+                            <span id="expiry-percent" class="text-sm font-bold leading-none">—</span>
+                            <span class="text-[10px] text-gray-500 mt-0.5">ថ្ងៃ</span>
+                        </div>
                     </div>
+                    <!-- Text info -->
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs text-gray-500 mb-1">ផុតកំណត់ថ្ងៃទី</p>
+                        <p id="expiry-display" class="font-semibold text-base text-gray-100 leading-tight">—</p>
+                        <p id="expiry-days-left" class="text-xs mt-1.5 font-medium">—</p>
+                    </div>
+                    <i class="fas fa-shield-alt text-xl opacity-40" id="expiry-shield"></i>
                 </div>
-                <i class="fas fa-shield-alt text-green-500 text-2xl"></i>
             </div>
 
             <!-- Page Title & Last Update -->
-            <div class="text-center mb-10">
-                <h1 class="text-3xl font-bold text-purple-400 tracking-wide">Server Network List</h1>
-                <p id="last-update" class="text-sm text-gray-500 mt-3">
-                    ធ្វើបច្ចុប្បន្នភាពចុងក្រោយ៖ <span>—</span>
+            <div class="text-center mb-7">
+                <h1 class="text-2xl font-bold text-white tracking-tight">Server Network List</h1>
+                <p id="last-update" class="text-xs text-gray-500 mt-2">
+                    ធ្វើបច្ចុប្បន្នភាពចុងក្រោយ៖ <span class="text-gray-400">—</span>
                 </p>
             </div>
 
             <!-- Search Bar (always visible) -->
-            <div class="mb-8 relative">
-                <i class="fas fa-search absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 text-xl"></i>
+            <div class="mb-7 relative">
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"></i>
                 <input type="text" id="search-input" placeholder="ស្វែងរក server..." 
-                       class="w-full bg-[#0d0d0d] border border-[#1a1a1a] rounded-xl pl-14 pr-5 py-4 text-gray-100 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition text-base">
+                       class="w-full bg-[#111] border border-[#1f1f1f] rounded-xl pl-11 pr-4 py-3.5 text-gray-100 focus:outline-none focus:border-purple-500/60 transition text-sm placeholder:text-gray-600">
             </div>
 
             <!-- ================= MAIN MENU (dynamically filled by JS) ================= -->

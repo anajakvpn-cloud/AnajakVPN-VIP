@@ -315,3 +315,94 @@ body.pb-20 {
 
 .sub-btn { line-height: 1; }
 .sub-btn:active { transform: scale(0.98); }
+/* ─── Expiry Circular Progress ─── */
+.expiry-card {
+    background: linear-gradient(145deg, #111111 0%, #0a0a0a 100%);
+    border: 1px solid #1f1f1f;
+}
+
+.expiry-progress-wrap {
+    width: 72px;
+    height: 72px;
+}
+
+.expiry-ring {
+    transform: rotate(-90deg);
+    width: 72px;
+    height: 72px;
+}
+
+.expiry-ring-bg {
+    fill: none;
+    stroke: #1a1a1a;
+    stroke-width: 6;
+}
+
+.expiry-ring-fill {
+    fill: none;
+    stroke-width: 6;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                stroke 0.5s ease;
+}
+
+.expiry-ring-fill.green  { stroke: #22c55e; }
+.expiry-ring-fill.yellow { stroke: #eab308; }
+.expiry-ring-fill.red    { stroke: #ef4444; }
+
+.expiry-center {
+    pointer-events: none;
+}
+
+#expiry-percent {
+    transition: color 0.4s ease;
+}
+#expiry-percent.green  { color: #4ade80; }
+#expiry-percent.yellow { color: #facc15; }
+#expiry-percent.red    { color: #f87171; }
+
+#expiry-days-left.green  { color: #4ade80; }
+#expiry-days-left.yellow { color: #facc15; }
+#expiry-days-left.red    { color: #f87171; }
+
+#expiry-shield.green  { color: #22c55e; }
+#expiry-shield.yellow { color: #eab308; }
+#expiry-shield.red    { color: #ef4444; }
+
+/* Smoother global polish */
+.card-bg {
+    transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.card-hover:hover {
+    transform: translateY(-4px);
+    border-color: #2a2a2a;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* Soft focus glow on inputs */
+input:focus {
+    box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15);
+}
+
+/* Smooth button press */
+button, .sub-btn {
+    transition: transform 0.15s ease, background-color 0.2s ease, opacity 0.2s ease;
+}
+button:active, .sub-btn:active {
+    transform: scale(0.97);
+}
+
+/* Bottom nav polish */
+#bottom-nav {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: rgba(10, 10, 10, 0.92);
+    border-top: 1px solid #1a1a1a;
+}
+
+/* Toast smoother */
+@keyframes toast-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(-6px); }
+}
