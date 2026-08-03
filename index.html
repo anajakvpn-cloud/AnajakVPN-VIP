@@ -118,15 +118,16 @@
             <div class="card-bg rounded-2xl p-5 mb-8 expiry-card">
                 <div class="flex items-center gap-5">
                     <!-- Circular Progress -->
-                    <div class="expiry-progress-wrap relative flex-shrink-0">
+                    <div class="expiry-progress-wrap">
                         <svg class="expiry-ring" width="72" height="72" viewBox="0 0 72 72">
-                            <circle class="expiry-ring-bg" cx="36" cy="36" r="30" />
+                            <circle class="expiry-ring-bg" cx="36" cy="36" r="30" fill="none" stroke="#222" stroke-width="6" />
                             <circle class="expiry-ring-fill" id="expiry-ring-fill" cx="36" cy="36" r="30"
+                                    fill="none" stroke="#22c55e" stroke-width="6" stroke-linecap="round"
                                     stroke-dasharray="188.5" stroke-dashoffset="188.5" />
                         </svg>
-                        <div class="expiry-center absolute inset-0 flex flex-col items-center justify-center">
-                            <span id="expiry-percent" class="text-sm font-bold leading-none">—</span>
-                            <span class="text-[10px] text-gray-500 mt-0.5">ថ្ងៃ</span>
+                        <div class="expiry-center">
+                            <span id="expiry-percent">—</span>
+                            <span style="font-size:10px;color:#6b7280;margin-top:2px;">ថ្ងៃ</span>
                         </div>
                     </div>
                     <!-- Text info -->

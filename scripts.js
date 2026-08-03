@@ -286,71 +286,141 @@ function scrollToTop() {
 }    
 
 /**
+ * Parse expiry date string safely (ISO, YYYY-MM-DD, DD/MM/YYYY, timestamp).
+ */
+function parseExpiryDate(str) {
+    if (!str) return null;
+    if (str instanceof Date) return isNaN(str.getTime()) ? null : str;
+
+    const s = String(str).trim();
+    // Unix ms / s
+    if (/^\d{10,13}$/.test(s)) {
+        const n = Number(s);
+        const d = new Date(n < 1e12 ? n * 1000 : n);
+        return isNaN(d.getTime()) ? null : d;
+    }
+    // YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+        const d = new Date(s);
+        return isNaN(d.getTime()) ? null : d;
+    }
+    // DD/MM/YYYY or DD-MM-YYYY
+    const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (m) {
+        const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+        return isNaN(d.getTime()) ? null : d;
+    }
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+}
+
+/**
  * Update circular expiry progress.
- * - daysLeft calculated from expiry_date
- * - percent based on daysLeft / 90 (capped 0-100) for visual ring
- * - Colors: green (>50%), yellow (20-50%), red (<20%)
+ * - Center = days left
+ * - Ring % = daysLeft / 90 (capped)
+ * - green >15d / >50%, yellow 8–15d, red ≤7d
  */
 function updateExpiryProgress(expiryDateStr) {
-    const CIRCUMFERENCE = 2 * Math.PI * 30; // r=30 → ~188.5
+    const R = 30;
+    const CIRCUMFERENCE = 2 * Math.PI * R; // ≈ 188.496
     const ring = document.getElementById('expiry-ring-fill');
     const percentEl = document.getElementById('expiry-percent');
     const displayEl = document.getElementById('expiry-display');
     const daysLeftEl = document.getElementById('expiry-days-left');
     const shieldEl = document.getElementById('expiry-shield');
 
-    if (!ring || !percentEl || !displayEl) return;
+    if (!ring || !percentEl || !displayEl) {
+        console.warn('[expiry] DOM elements missing');
+        return;
+    }
 
-    const expiry = new Date(expiryDateStr);
+    const expiry = parseExpiryDate(expiryDateStr);
+    if (!expiry) {
+        console.warn('[expiry] invalid date:', expiryDateStr);
+        percentEl.textContent = '—';
+        displayEl.textContent = '—';
+        if (daysLeftEl) daysLeftEl.textContent = '—';
+        ring.style.strokeDasharray = String(CIRCUMFERENCE);
+        ring.style.strokeDashoffset = String(CIRCUMFERENCE);
+        return;
+    }
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    expiry.setHours(23, 59, 59, 999);
+    const expDay = new Date(expiry);
+    expDay.setHours(23, 59, 59, 999);
 
-    const msLeft = expiry - today;
-    const daysLeft = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+    const msLeft = expDay.getTime() - today.getTime();
+    const daysLeft = Math.max(0, Math.ceil(msLeft / 86400000));
 
-    // Visual %: assume typical max window of 90 days
+    // Ring fill relative to 90-day window
     const percent = Math.max(0, Math.min(100, Math.round((daysLeft / 90) * 100)));
 
-    // Color state
     let colorClass = 'green';
-    if (percent <= 20 || daysLeft <= 7) colorClass = 'red';
-    else if (percent <= 50 || daysLeft <= 15) colorClass = 'yellow';
+    if (daysLeft <= 7 || percent <= 20) colorClass = 'red';
+    else if (daysLeft <= 15 || percent <= 50) colorClass = 'yellow';
 
-    // Update ring
+    const strokeColor = colorClass === 'green' ? '#22c55e'
+                      : colorClass === 'yellow' ? '#eab308'
+                      : '#ef4444';
+
+    // Update ring (attributes + style for max browser support)
     ring.classList.remove('green', 'yellow', 'red');
     ring.classList.add(colorClass);
-    const offset = CIRCUMFERENCE - (percent / 100) * CIRCUMFERENCE;
-    ring.style.strokeDasharray = CIRCUMFERENCE;
-    ring.style.strokeDashoffset = offset;
+    ring.setAttribute('stroke', strokeColor);
+    ring.style.stroke = strokeColor;
+    ring.setAttribute('stroke-dasharray', String(CIRCUMFERENCE));
+    ring.style.strokeDasharray = String(CIRCUMFERENCE);
 
-    // Center number
-    percentEl.classList.remove('green', 'yellow', 'red');
-    percentEl.classList.add(colorClass);
-    percentEl.textContent = daysLeft > 0 ? daysLeft : '0';
-
-    // Date text
-    displayEl.textContent = expiry.toLocaleDateString('km-KH', {
-        day: 'numeric', month: 'long', year: 'numeric'
+    // Animate from full empty → filled
+    const offset = CIRCUMFERENCE * (1 - percent / 100);
+    // force start state then animate
+    ring.style.transition = 'none';
+    ring.setAttribute('stroke-dashoffset', String(CIRCUMFERENCE));
+    ring.style.strokeDashoffset = String(CIRCUMFERENCE);
+    // next frame → target
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            ring.style.transition = 'stroke-dashoffset 0.85s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.4s ease';
+            ring.setAttribute('stroke-dashoffset', String(offset));
+            ring.style.strokeDashoffset = String(offset);
+        });
     });
 
-    // Days left label
+    // Center days number
+    percentEl.classList.remove('green', 'yellow', 'red');
+    percentEl.classList.add(colorClass);
+    percentEl.style.color = strokeColor;
+    percentEl.textContent = String(daysLeft);
+
+    // Full date
+    try {
+        displayEl.textContent = expiry.toLocaleDateString('km-KH', {
+            day: 'numeric', month: 'long', year: 'numeric'
+        });
+    } catch {
+        displayEl.textContent = expiry.toISOString().slice(0, 10);
+    }
+
+    // "នៅសល់ X ថ្ងៃ"
     if (daysLeftEl) {
         daysLeftEl.classList.remove('green', 'yellow', 'red');
         daysLeftEl.classList.add(colorClass);
+        daysLeftEl.style.color = strokeColor;
         if (daysLeft <= 0) {
             daysLeftEl.textContent = 'ផុតកំណត់ហើយ';
         } else if (daysLeft === 1) {
             daysLeftEl.textContent = 'នៅសល់ ១ ថ្ងៃ';
         } else {
-            daysLeftEl.textContent = `នៅសល់ ${daysLeft} ថ្ងៃ`;
+            daysLeftEl.textContent = 'នៅសល់ ' + daysLeft + ' ថ្ងៃ';
         }
     }
 
-    // Shield icon color
     if (shieldEl) {
         shieldEl.classList.remove('green', 'yellow', 'red');
         shieldEl.classList.add(colorClass);
+        shieldEl.style.color = strokeColor;
+        shieldEl.style.opacity = '1';
     }
 }
 

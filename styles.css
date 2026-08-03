@@ -316,34 +316,42 @@ body.pb-20 {
 .sub-btn { line-height: 1; }
 .sub-btn:active { transform: scale(0.98); }
 /* ─── Expiry Circular Progress ─── */
-.expiry-card {
+.expiry-card.card-bg {
     background: linear-gradient(145deg, #111111 0%, #0a0a0a 100%);
     border: 1px solid #1f1f1f;
+    overflow: visible !important;
 }
 
 .expiry-progress-wrap {
+    position: relative;
     width: 72px;
     height: 72px;
+    flex-shrink: 0;
 }
 
 .expiry-ring {
+    position: absolute;
+    top: 0;
+    left: 0;
     transform: rotate(-90deg);
     width: 72px;
     height: 72px;
+    overflow: visible;
 }
 
 .expiry-ring-bg {
     fill: none;
-    stroke: #1a1a1a;
+    stroke: #222;
     stroke-width: 6;
 }
 
 .expiry-ring-fill {
     fill: none;
+    stroke: #22c55e;
     stroke-width: 6;
     stroke-linecap: round;
-    transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1),
-                stroke 0.5s ease;
+    transition: stroke-dashoffset 0.85s cubic-bezier(0.4, 0, 0.2, 1),
+                stroke 0.4s ease;
 }
 
 .expiry-ring-fill.green  { stroke: #22c55e; }
@@ -351,23 +359,40 @@ body.pb-20 {
 .expiry-ring-fill.red    { stroke: #ef4444; }
 
 .expiry-center {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     pointer-events: none;
 }
 
 #expiry-percent {
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1;
     transition: color 0.4s ease;
+    color: #4ade80;
 }
 #expiry-percent.green  { color: #4ade80; }
 #expiry-percent.yellow { color: #facc15; }
 #expiry-percent.red    { color: #f87171; }
 
+#expiry-days-left {
+    transition: color 0.4s ease;
+}
 #expiry-days-left.green  { color: #4ade80; }
 #expiry-days-left.yellow { color: #facc15; }
 #expiry-days-left.red    { color: #f87171; }
 
-#expiry-shield.green  { color: #22c55e; }
-#expiry-shield.yellow { color: #eab308; }
-#expiry-shield.red    { color: #ef4444; }
+#expiry-shield {
+    transition: color 0.4s ease, opacity 0.3s ease;
+}
+#expiry-shield.green  { color: #22c55e; opacity: 1; }
+#expiry-shield.yellow { color: #eab308; opacity: 1; }
+#expiry-shield.red    { color: #ef4444; opacity: 1; }
 
 /* Smoother global polish */
 .card-bg {
