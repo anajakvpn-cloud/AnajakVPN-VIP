@@ -502,7 +502,8 @@ function showMyIP() {
     
     loading.classList.remove('hidden');    
     content.classList.add('hidden');    
-    modal.classList.remove('hidden');    
+    modal.classList.add('show');
+    document.body.style.overflow = 'hidden';    
     
     const timeoutId = setTimeout(() => {    
         loading.classList.add('hidden');    
@@ -598,7 +599,10 @@ function getCountryFlagEmoji(code) {
 }    
     
 function closeIPModal() {    
-    document.getElementById('ip-modal').classList.add('hidden');    
+    const modal = document.getElementById('ip-modal');
+    if (!modal) return;
+    modal.classList.remove('show');
+    document.body.style.overflow = '';
 }    
 
 // ================== CONFIG PLACEHOLDER REPLACEMENT (FIXED) ==================    
@@ -772,7 +776,7 @@ function checkLoginCode() {
         setRandomUserAvatar();    
 
         if (!hasSeenWarning) {    
-            document.getElementById('warning-modal').classList.add('show');    
+            document.getElementById('warning-modal').classList.add('show'); document.body.style.overflow = 'hidden';    
             hasSeenWarning = true;    
         }    
 
@@ -828,7 +832,7 @@ function attemptAutoLogin() {
             showMainHeaderElements();
 
             if (!hasSeenWarning) {
-                document.getElementById('warning-modal').classList.add('show');
+                document.getElementById('warning-modal').classList.add('show'); document.body.style.overflow = 'hidden';
                 hasSeenWarning = true;
             }
 
@@ -849,7 +853,8 @@ function attemptAutoLogin() {
 }
 // ================== WARNING MODAL ==================    
 async function closeWarningModal() {    
-    document.getElementById('warning-modal').classList.remove('show');    
+    document.getElementById('warning-modal')?.classList.remove('show');
+    document.body.style.overflow = '';    
 
     if (!currentUser || !currentUser.code || !currentUser.expiry) {
         showToast('មិនមានព័ត៌មានអ្នកប្រើប្រាស់');

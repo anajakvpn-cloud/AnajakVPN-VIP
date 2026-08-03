@@ -49,8 +49,8 @@
 <body class="min-h-screen text-gray-100 pb-24">
 
     <!-- Warning Bottom Sheet (shown on first successful login) -->
-    <div id="warning-modal" class="bottom-sheet-overlay">
-        <div class="bottom-sheet" role="dialog" aria-modal="true">
+    <div id="warning-modal" class="bottom-sheet-overlay" onclick="if(event.target===this)closeWarningModal()">
+        <div class="bottom-sheet" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
             <div class="bottom-sheet-handle"></div>
             <div class="bottom-sheet-icon">
                 <i class="fas fa-exclamation-triangle"></i>
@@ -109,13 +109,17 @@
                         <p class="text-[11px] text-gray-500 leading-none">Dashboard</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-2.5">
+                <div class="flex items-center gap-2">
                     <button type="button" onclick="showNotifications()" class="relative w-10 h-10 rounded-full bg-[#1a1630] border border-[#2a2540] flex items-center justify-center text-gray-300 hover:text-white transition">
                         <i class="fas fa-bell text-sm"></i>
                         <span id="notification-badge" class="notification-badge hidden">0</span>
                     </button>
-                    <div id="random-user-avatar" class="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold ring-2 ring-purple-500/40 shadow-lg cursor-pointer" title="Logout" onclick="logout(false)">
+                    <div id="random-user-avatar" class="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold ring-2 ring-purple-500/40 shadow-lg">
                     </div>
+                    <button type="button" id="logout-btn" onclick="logout(false)" class="logout-pill">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span>ចាកចេញ</span>
+                    </button>
                 </div>
             </div>
 
@@ -359,30 +363,45 @@
         </div>
     </div>
 
-    <!-- IP Information Modal -->
-    <div id="ip-modal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-60 hidden">
-        <div class="card-bg rounded-2xl p-8 max-w-sm w-11/12 text-center relative">
-            <button onclick="closeIPModal()" class="absolute top-5 right-5 text-gray-400 hover:text-white text-2xl">
-                <i class="fas fa-times"></i>
-            </button>
-
-            <h2 class="text-2xl font-bold text-purple-400 mb-8">ព័ត៌មាន IP របស់អ្នក</h2>
-
-            <div id="ip-loading" class="py-12">
-                <i class="fas fa-spinner fa-spin text-5xl text-purple-500"></i>
-                <p class="mt-6 text-gray-400 text-lg">កំពុងទាញយក...</p>
+    <!-- IP Information Bottom Sheet -->
+    <div id="ip-modal" class="bottom-sheet-overlay" onclick="if(event.target===this)closeIPModal()">
+        <div class="bottom-sheet bottom-sheet-ip" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
+            <div class="bottom-sheet-handle"></div>
+            <div class="flex items-center justify-between mb-4 px-1">
+                <h2 class="text-lg font-bold text-white">ព័ត៌មាន IP របស់អ្នក</h2>
+                <button type="button" onclick="closeIPModal()" class="w-9 h-9 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white transition">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
 
-            <div id="ip-content" class="hidden">
-                <div class="text-7xl mb-6" id="country-flag"></div>
-                <p class="text-3xl font-bold text-white mb-3" id="ip-address">—</p>
-                <p class="text-xl text-gray-300 mb-2" id="country-name">—</p>
-                <p class="text-base text-gray-500" id="isp-info">—</p>
+            <div id="ip-loading" class="py-10 text-center">
+                <div class="mx-auto mb-4 w-12 h-12 rounded-full border-2 border-purple-500/30 border-t-purple-500 animate-spin"></div>
+                <p class="text-gray-400 text-sm">កំពុងទាញយក...</p>
             </div>
 
-            <p class="text-xs text-gray-600 mt-10 opacity-70">
-                ទិន្នន័យពី ipapi.co • មិនមែនជាទិន្នន័យផ្លូវការទេ
+            <div id="ip-content" class="hidden text-center pb-2">
+                <div class="text-5xl mb-3" id="country-flag"></div>
+                <p class="text-2xl font-bold text-white mb-1 tracking-wide" id="ip-address">—</p>
+                <p class="text-base text-purple-300 mb-1" id="country-name">—</p>
+                <p class="text-sm text-gray-500 mb-4" id="isp-info">—</p>
+                <div class="ip-meta-row">
+                    <div class="ip-meta-item">
+                        <i class="fas fa-globe text-purple-400 mb-1"></i>
+                        <span class="text-[11px] text-gray-500">Location</span>
+                    </div>
+                    <div class="ip-meta-item">
+                        <i class="fas fa-network-wired text-purple-400 mb-1"></i>
+                        <span class="text-[11px] text-gray-500">Network</span>
+                    </div>
+                </div>
+            </div>
+
+            <p class="text-[10px] text-gray-600 mt-5 text-center opacity-70">
+                ទិន្នន័យពី ipwho.is • មិនមែនជាទិន្នន័យផ្លូវការទេ
             </p>
+            <button type="button" onclick="closeIPModal()" class="bottom-sheet-btn bottom-sheet-btn-purple mt-4">
+                បិទ
+            </button>
         </div>
     </div>
 
