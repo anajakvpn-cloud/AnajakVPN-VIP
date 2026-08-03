@@ -773,7 +773,6 @@ function checkLoginCode() {
         document.getElementById('app-content').classList.remove('hidden');    
         document.getElementById('bottom-nav').classList.remove('hidden');    
 
-        setRandomUserAvatar();    
 
         if (!hasSeenWarning) {    
             document.getElementById('warning-modal').classList.add('show'); document.body.style.overflow = 'hidden';    
@@ -828,7 +827,6 @@ function attemptAutoLogin() {
             document.getElementById('app-content').classList.remove('hidden');
             document.getElementById('bottom-nav').classList.remove('hidden');
 
-            setRandomUserAvatar();
             showMainHeaderElements();
 
             if (!hasSeenWarning) {

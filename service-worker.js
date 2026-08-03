@@ -1,4 +1,4 @@
-const CACHE_NAME = "anajakvip-v6";
+const CACHE_NAME = "anajakvip-v7";
 const FILES_TO_CACHE = [
   "/",
   "/index.html",

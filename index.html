@@ -101,21 +101,16 @@
             <!-- Top App Header -->
             <div class="flex items-center justify-between mb-5">
                 <div class="flex items-center gap-2.5">
-                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center shadow-lg shadow-purple-900/40">
-                        <i class="fas fa-crown text-white text-sm"></i>
-                    </div>
+                    <button type="button" onclick="showNotifications()" class="relative w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center shadow-lg shadow-purple-900/40 text-white hover:brightness-110 transition">
+                        <i class="fas fa-bell text-sm"></i>
+                        <span id="notification-badge" class="notification-badge hidden">0</span>
+                    </button>
                     <div>
                         <p class="text-[15px] font-bold text-white leading-tight">AnajakVIP</p>
                         <p class="text-[11px] text-gray-500 leading-none">Dashboard</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button type="button" onclick="showNotifications()" class="relative w-10 h-10 rounded-full bg-[#1a1630] border border-[#2a2540] flex items-center justify-center text-gray-300 hover:text-white transition">
-                        <i class="fas fa-bell text-sm"></i>
-                        <span id="notification-badge" class="notification-badge hidden">0</span>
-                    </button>
-                    <div id="random-user-avatar" class="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold ring-2 ring-purple-500/40 shadow-lg">
-                    </div>
                     <button type="button" id="logout-btn" onclick="logout(false)" class="logout-pill">
                         <i class="fas fa-sign-out-alt"></i>
                         <span>ចាកចេញ</span>
