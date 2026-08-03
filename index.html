@@ -48,21 +48,23 @@
 </head>
 <body class="min-h-screen text-gray-100 pb-24">
 
-    <!-- Warning Modal (shown on first successful login) -->
-    <div id="warning-modal" class="fixed inset-0 bg-black bg-opacity-85 flex items-center justify-center z-100 opacity-0 invisible transition-all duration-300">
-        <div class="modal-content bg-[#0d0d0d] border-2 border-red-600 rounded-2xl p-8 max-w-[90%] text-center shadow-2xl shadow-red-900/30">
-            <i class="fas fa-exclamation-triangle modal-icon text-6xl text-red-500 mb-6"></i>
-            <h2 class="text-2xl font-bold text-red-400 mb-6">សំខាន់!</h2>
-            <p class="text-lg mb-6 leading-relaxed">
-                សូមកុំចែករំលែក server ឬកូដចូលប្រើនេះ<br>
-                ទៅអ្នកដទៃ ព្រោះវានឹងធ្វើឱ្យ server ដំណើរការយឺត<br>
+    <!-- Warning Bottom Sheet (shown on first successful login) -->
+    <div id="warning-modal" class="bottom-sheet-overlay">
+        <div class="bottom-sheet" role="dialog" aria-modal="true">
+            <div class="bottom-sheet-handle"></div>
+            <div class="bottom-sheet-icon">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <h2 class="bottom-sheet-title">សំខាន់!</h2>
+            <p class="bottom-sheet-body">
+                សូមកុំចែករំលែក server ឬកូដចូលប្រើនេះ
+                ទៅអ្នកដទៃ ព្រោះវានឹងធ្វើឱ្យ server ដំណើរការយឺត
                 ឬត្រូវបានបិទដោយក្រុមហ៊ុន។
             </p>
-            <p class="text-sm text-gray-400 mb-8">
+            <p class="bottom-sheet-hint">
                 សូមប្រើប្រាស់ដោយខ្លួនឯងតែប៉ុណ្ណោះ ដើម្បីរក្សាល្បឿនលឿន និងស្ថេរភាព។
             </p>
-            <button onclick="closeWarningModal()" 
-                    class="bg-red-600 hover:bg-red-700 text-white px-10 py-4 rounded-xl text-lg font-medium transition shadow-lg">
+            <button onclick="closeWarningModal()" class="bottom-sheet-btn">
                 ខ្ញុំយល់ហើយ
             </button>
         </div>
@@ -94,33 +96,55 @@
     <!-- ===================== MAIN APP CONTENT ===================== -->
     <div id="app-content" class="hidden min-h-screen">
 
-        <div class="container mx-auto px-5 py-10 pb-28 max-w-md">
+        <div class="container mx-auto px-4 pt-6 pb-28 max-w-md">
 
-            <!-- User Info + Logout -->
+            <!-- Top App Header -->
             <div class="flex items-center justify-between mb-5">
-                <div class="flex items-center space-x-3">
-                    <div id="random-user-avatar" class="w-11 h-11 rounded-full flex items-center justify-center shadow-lg text-xl font-bold ring-2 ring-purple-500/30">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center shadow-lg shadow-purple-900/40">
+                        <i class="fas fa-crown text-white text-sm"></i>
                     </div>
                     <div>
-                        <p class="text-[11px] text-gray-500 leading-none mb-0.5">ស្វាគមន៍</p>
-                        <p id="user-code-display" class="font-bold text-white text-[15px] leading-tight tracking-wide">User</p>
+                        <p class="text-[15px] font-bold text-white leading-tight">AnajakVIP</p>
+                        <p class="text-[11px] text-gray-500 leading-none">Dashboard</p>
                     </div>
                 </div>
-                
-                <button id="logout-btn" class="flex items-center space-x-1.5 transition">
-                    <i class="fas fa-sign-out-alt text-xs"></i>
-                    <span>ចាកចេញ</span>
-                </button>
+                <div class="flex items-center gap-2.5">
+                    <button type="button" onclick="showNotifications()" class="relative w-10 h-10 rounded-full bg-[#1a1630] border border-[#2a2540] flex items-center justify-center text-gray-300 hover:text-white transition">
+                        <i class="fas fa-bell text-sm"></i>
+                        <span id="notification-badge" class="notification-badge hidden">0</span>
+                    </button>
+                    <div id="random-user-avatar" class="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold ring-2 ring-purple-500/40 shadow-lg cursor-pointer" title="Logout" onclick="logout(false)">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Premium User Card -->
+            <div class="premium-card mb-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-[11px] text-purple-300/80 mb-1">អ្នកប្រើ</p>
+                        <p id="user-code-display" class="text-xl font-bold text-white tracking-wide">User</p>
+                        <span class="premium-badge mt-2 inline-flex items-center gap-1">
+                            <i class="fas fa-crown text-[10px]"></i>
+                            Premium User
+                        </span>
+                    </div>
+                    <div class="premium-shield">
+                        <i class="fas fa-shield-alt"></i>
+                        <i class="fas fa-check premium-check"></i>
+                    </div>
+                </div>
             </div>
 
             <!-- Expiry Circular Progress Card -->
-            <div class="card-bg rounded-2xl px-4 py-4 mb-6 expiry-card">
+            <div class="card-bg rounded-2xl px-4 py-3.5 mb-4 expiry-card">
                 <div class="flex items-center gap-4">
                     <div class="expiry-progress-wrap">
                         <svg class="expiry-ring" width="68" height="68" viewBox="0 0 68 68">
                             <circle class="expiry-ring-bg" cx="34" cy="34" r="28" fill="none" stroke="#2a2540" stroke-width="5.5" />
                             <circle class="expiry-ring-fill" id="expiry-ring-fill" cx="34" cy="34" r="28"
-                                    fill="none" stroke="#34d399" stroke-width="5.5" stroke-linecap="round"
+                                    fill="none" stroke="#a78bfa" stroke-width="5.5" stroke-linecap="round"
                                     stroke-dasharray="176" stroke-dashoffset="176" />
                         </svg>
                         <div class="expiry-center">
@@ -133,26 +157,19 @@
                         <p id="expiry-display" class="font-semibold text-[15px] text-white leading-tight">—</p>
                         <p id="expiry-days-left" class="text-xs mt-1 font-medium">—</p>
                     </div>
-                    <i class="fas fa-shield-alt text-2xl" id="expiry-shield" style="opacity:0.85"></i>
+                    <i class="fas fa-shield-alt text-xl text-purple-400/60" id="expiry-shield"></i>
                 </div>
             </div>
 
-            <!-- Page Title & Last Update -->
-            <div class="mb-5">
-                <h1 class="text-xl font-bold text-white tracking-tight">Server Network List</h1>
-                <p id="last-update" class="text-[11px] text-gray-500 mt-1.5">
-                    ធ្វើបច្ចុប្បន្នភាពចុងក្រោយ៖ <span class="text-gray-400">—</span>
-                </p>
-            </div>
-
             <!-- Search Bar -->
-            <div class="mb-5 relative">
+            <div class="mb-4 relative">
                 <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
                 <input type="text" id="search-input" placeholder="ស្វែងរក server..." 
                        class="w-full pl-10 pr-10 py-3 text-sm placeholder:text-gray-600">
                 <i class="fas fa-sliders-h absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
             </div>
 
+            <p id="last-update" class="hidden"><span></span></p>
             <!-- MAIN MENU -->
             <div id="main-menu" class="space-y-3"></div>
 
@@ -230,6 +247,10 @@
                     <i class="fas fa-shield-alt text-purple-400/70"></i>
                 </div>
                 <div id="servers-container" class="space-y-3"></div>
+                <button type="button" id="refresh-servers-btn" onclick="location.reload()" class="w-full mt-2 py-3 rounded-2xl text-sm font-medium text-purple-300 border border-purple-500/25 bg-purple-500/10 hover:bg-purple-500/15 transition flex items-center justify-center gap-2">
+                    <i class="fas fa-sync-alt"></i>
+                    Refresh Servers
+                </button>
             </div>
 
             <!-- Notifications View -->

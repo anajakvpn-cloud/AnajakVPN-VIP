@@ -187,19 +187,17 @@ async function updateLastUpdateDate() {
 function hideMainHeaderElements() {    
     const container = document.querySelector('#app-content .container');    
     if (!container) return;    
-
-    document.getElementById('server-stats')?.classList.add('hidden');    
-    container.querySelector('.card-bg.rounded-xl.p-4.mb-6')?.classList.add('hidden');    
-    container.querySelector('.text-center.mb-8')?.classList.add('hidden');    
+    container.querySelector('.premium-card')?.classList.add('hidden');    
+    container.querySelector('.expiry-card')?.classList.add('hidden');    
+    document.getElementById('search-input')?.closest('.relative')?.classList.add('hidden');    
 }    
 
 function showMainHeaderElements() {    
     const container = document.querySelector('#app-content .container');    
     if (!container) return;    
-
-    document.getElementById('server-stats')?.classList.remove('hidden');    
-    container.querySelector('.card-bg.rounded-xl.p-4.mb-6')?.classList.remove('hidden');    
-    container.querySelector('.text-center.mb-8')?.classList.remove('hidden');    
+    container.querySelector('.premium-card')?.classList.remove('hidden');    
+    container.querySelector('.expiry-card')?.classList.remove('hidden');    
+    document.getElementById('search-input')?.closest('.relative')?.classList.remove('hidden');    
 }    
 
 // ================== GLOBAL LOADING OVERLAY ==================
@@ -1473,7 +1471,7 @@ function copyText(text) {
 
 // ================== APP INITIALIZATION ==================    
 document.addEventListener('DOMContentLoaded', () => {    
-    document.getElementById('logout-btn')?.addEventListener('click', () => logout(false));    
+    // logout via avatar onclick in HTML    
     loadData();    
 
     document.addEventListener('visibilitychange', () => {    

@@ -311,24 +311,7 @@ body {
   filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.35));
 }
 
-/* ── Warning modal ── */
-#warning-modal {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  background-color: rgba(8, 6, 18, 0.88);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.3s ease, visibility 0.3s ease;
-}
-#warning-modal.show {
-  opacity: 1;
-  visibility: visible;
-}
+/* old warning modal rules removed – using bottom-sheet */
 .modal-content {
   background: linear-gradient(160deg, #1a1630, #12101e);
   border: 1px solid rgba(239, 68, 68, 0.4);
@@ -409,4 +392,168 @@ input:focus {
     min-width: 40px;
     font-size: 0.7rem;
   }
+}
+
+/* ─── Premium User Card ─── */
+.premium-card {
+  background: linear-gradient(135deg, #1e1a3a 0%, #2a1f55 45%, #1a1435 100%);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 20px;
+  padding: 18px 18px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(88, 40, 180, 0.2), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+.premium-card::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  right: -20%;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(139,92,246,0.25) 0%, transparent 70%);
+  pointer-events: none;
+}
+.premium-badge {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  box-shadow: 0 2px 10px rgba(109, 40, 217, 0.4);
+}
+.premium-shield {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, rgba(139,92,246,0.25), rgba(109,40,217,0.1));
+  border: 2px solid rgba(167, 139, 250, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-shadow: 0 0 24px rgba(139, 92, 246, 0.25);
+}
+.premium-shield > .fa-shield-alt {
+  font-size: 28px;
+  color: #c4b5fd;
+}
+.premium-check {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  font-size: 11px;
+  color: #a78bfa;
+  background: #1e1a3a;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ─── Bottom Sheet Warning ─── */
+.bottom-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(5, 4, 12, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  pointer-events: none;
+}
+.bottom-sheet-overlay.show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+.bottom-sheet {
+  width: 100%;
+  max-width: 480px;
+  background: linear-gradient(180deg, #1a1630 0%, #12101e 100%);
+  border-radius: 24px 24px 0 0;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-bottom: none;
+  padding: 12px 24px 32px;
+  padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -16px 48px rgba(0, 0, 0, 0.5);
+  transform: translateY(100%);
+  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  text-align: center;
+}
+.bottom-sheet-overlay.show .bottom-sheet {
+  transform: translateY(0);
+}
+.bottom-sheet-handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: #3a3555;
+  margin: 4px auto 20px;
+}
+.bottom-sheet-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f87171;
+  font-size: 26px;
+}
+.bottom-sheet-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #f87171;
+  margin-bottom: 12px;
+}
+.bottom-sheet-body {
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: #d4d1e0;
+  margin-bottom: 10px;
+}
+.bottom-sheet-hint {
+  font-size: 0.8rem;
+  color: #8b879c;
+  margin-bottom: 22px;
+  line-height: 1.5;
+}
+.bottom-sheet-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  font-weight: 600;
+  font-size: 1rem;
+  padding: 14px;
+  border-radius: 14px;
+  border: none;
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.35);
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.2s ease;
+}
+.bottom-sheet-btn:active {
+  transform: scale(0.98);
+}
+
+/* Header notification badge position */
+button .notification-badge {
+  top: -2px;
+  right: -2px;
+}
+
+/* Expiry ring default purple accent (mockup style) */
+.expiry-ring-fill {
+  stroke: #a78bfa;
 }
