@@ -71,25 +71,35 @@
     </div>
 
     <!-- Login Screen -->
-    <!-- Login Screen (hidden until data is loaded) -->
-<div id="login-view" class="container mx-auto px-5 py-10 max-w-md flex flex-col items-center justify-center min-h-screen hidden">
-        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-500 flex items-center justify-center mb-6 shadow-lg shadow-purple-900/40">
-            <i class="fas fa-shield-alt text-2xl text-white"></i>
-        </div>
-        <h1 class="text-3xl font-bold text-white mb-2 tracking-tight">AnajakVIP</h1>
-        <p class="text-sm text-gray-500 mb-10">ស្វាគមន៍ • បញ្ចូលកូដដើម្បីចូលប្រើ</p>
-        
-        <div class="card-bg rounded-2xl p-7 w-full shadow-2xl border border-[#1f1f1f]">
-            <input type="text" id="login-code" placeholder="វាយកូដរបស់អ្នក..." 
-                   class="w-full bg-[#141414] border border-[#2a2a2a] rounded-xl px-5 py-4 text-gray-100 focus:outline-none focus:border-purple-500 transition mb-5 text-lg tracking-wide"
-                   autocomplete="off">
-            
-            <button onclick="checkLoginCode()" 
-                    class="w-full bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white py-4 rounded-xl transition font-semibold shadow-lg shadow-purple-900/30 text-lg">
-                ចូលប្រើ
-            </button>
-            
-            <p id="login-error" class="text-red-400 text-center mt-5 hidden text-base"></p>
+    <div id="login-view" class="login-screen hidden">
+        <div class="login-glow"></div>
+        <div class="login-mesh"></div>
+
+        <div class="login-inner">
+            <div class="login-logo-wrap">
+                <div class="login-logo">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+            </div>
+
+            <h1 class="login-brand">Anajak<span>VIP</span></h1>
+            <p class="login-tagline">ស្វាគមន៍ • បញ្ចូលកូដដើម្បីចូលប្រើ • សុវត្ថិភាពខ្ពស់</p>
+
+            <div class="login-card">
+                <h2 class="login-card-title">លេខកូដ</h2>
+                <p class="login-card-sub">បញ្ចូលលេខកូដរបស់អ្នកដើម្បីចូល</p>
+
+                <div class="login-input-wrap">
+                    <i class="fas fa-shield-alt login-input-icon"></i>
+                    <input type="text" id="login-code" placeholder="បញ្ចូលលេខកូដ..." autocomplete="off" />
+                </div>
+
+                <button type="button" onclick="checkLoginCode()" class="login-btn">
+                    ចូលប្រើ
+                </button>
+
+                <p id="login-error" class="login-error hidden"></p>
+            </div>
         </div>
     </div>
 
