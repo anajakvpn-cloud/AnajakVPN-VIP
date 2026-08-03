@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AnajakVIP</title>
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#000000">
+    <meta name="theme-color" content="#0b0a14">
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -46,7 +46,7 @@
     <!-- Custom Styles -->
     <link href="styles.css" rel="stylesheet">
 </head>
-<body class="min-h-screen text-gray-100 pb-20 bg-black">
+<body class="min-h-screen text-gray-100 pb-24">
 
     <!-- Warning Modal (shown on first successful login) -->
     <div id="warning-modal" class="fixed inset-0 bg-black bg-opacity-85 flex items-center justify-center z-100 opacity-0 invisible transition-all duration-300">
@@ -97,66 +97,64 @@
         <div class="container mx-auto px-5 py-10 pb-28 max-w-md">
 
             <!-- User Info + Logout -->
-            <div class="flex items-center justify-between mb-6">
-                <div class="flex items-center space-x-3.5">
-                    <div id="random-user-avatar" class="w-12 h-12 rounded-full flex items-center justify-center shadow-lg text-2xl font-bold ring-2 ring-white/10">
-                        <!-- Random emoji inserted by JS -->
+            <div class="flex items-center justify-between mb-5">
+                <div class="flex items-center space-x-3">
+                    <div id="random-user-avatar" class="w-11 h-11 rounded-full flex items-center justify-center shadow-lg text-xl font-bold ring-2 ring-purple-500/30">
                     </div>
                     <div>
-                        <p class="text-xs text-gray-500">ស្វាគមន៍</p>
-                        <p id="user-code-display" class="font-semibold text-gray-100 text-base leading-tight">User</p>
+                        <p class="text-[11px] text-gray-500 leading-none mb-0.5">ស្វាគមន៍</p>
+                        <p id="user-code-display" class="font-bold text-white text-[15px] leading-tight tracking-wide">User</p>
                     </div>
                 </div>
                 
-                <button id="logout-btn" class="text-red-400/80 flex items-center space-x-1.5 hover:text-red-300 transition text-sm px-3 py-1.5 rounded-lg hover:bg-red-500/10">
-                    <i class="fas fa-sign-out-alt"></i>
+                <button id="logout-btn" class="flex items-center space-x-1.5 transition">
+                    <i class="fas fa-sign-out-alt text-xs"></i>
                     <span>ចាកចេញ</span>
                 </button>
             </div>
 
             <!-- Expiry Circular Progress Card -->
-            <div class="card-bg rounded-2xl p-5 mb-8 expiry-card">
-                <div class="flex items-center gap-5">
-                    <!-- Circular Progress -->
+            <div class="card-bg rounded-2xl px-4 py-4 mb-6 expiry-card">
+                <div class="flex items-center gap-4">
                     <div class="expiry-progress-wrap">
-                        <svg class="expiry-ring" width="72" height="72" viewBox="0 0 72 72">
-                            <circle class="expiry-ring-bg" cx="36" cy="36" r="30" fill="none" stroke="#222" stroke-width="6" />
-                            <circle class="expiry-ring-fill" id="expiry-ring-fill" cx="36" cy="36" r="30"
-                                    fill="none" stroke="#22c55e" stroke-width="6" stroke-linecap="round"
-                                    stroke-dasharray="188.5" stroke-dashoffset="188.5" />
+                        <svg class="expiry-ring" width="68" height="68" viewBox="0 0 68 68">
+                            <circle class="expiry-ring-bg" cx="34" cy="34" r="28" fill="none" stroke="#2a2540" stroke-width="5.5" />
+                            <circle class="expiry-ring-fill" id="expiry-ring-fill" cx="34" cy="34" r="28"
+                                    fill="none" stroke="#34d399" stroke-width="5.5" stroke-linecap="round"
+                                    stroke-dasharray="176" stroke-dashoffset="176" />
                         </svg>
                         <div class="expiry-center">
                             <span id="expiry-percent">—</span>
-                            <span style="font-size:10px;color:#6b7280;margin-top:2px;">ថ្ងៃ</span>
+                            <span style="font-size:9px;color:#8b879c;margin-top:1px;">ថ្ងៃ</span>
                         </div>
                     </div>
-                    <!-- Text info -->
                     <div class="flex-1 min-w-0">
-                        <p class="text-xs text-gray-500 mb-1">ផុតកំណត់ថ្ងៃទី</p>
-                        <p id="expiry-display" class="font-semibold text-base text-gray-100 leading-tight">—</p>
-                        <p id="expiry-days-left" class="text-xs mt-1.5 font-medium">—</p>
+                        <p class="text-[11px] text-gray-500 mb-0.5">ផុតកំណត់ថ្ងៃទី</p>
+                        <p id="expiry-display" class="font-semibold text-[15px] text-white leading-tight">—</p>
+                        <p id="expiry-days-left" class="text-xs mt-1 font-medium">—</p>
                     </div>
-                    <i class="fas fa-shield-alt text-xl opacity-40" id="expiry-shield"></i>
+                    <i class="fas fa-shield-alt text-2xl" id="expiry-shield" style="opacity:0.85"></i>
                 </div>
             </div>
 
             <!-- Page Title & Last Update -->
-            <div class="text-center mb-7">
-                <h1 class="text-2xl font-bold text-white tracking-tight">Server Network List</h1>
-                <p id="last-update" class="text-xs text-gray-500 mt-2">
+            <div class="mb-5">
+                <h1 class="text-xl font-bold text-white tracking-tight">Server Network List</h1>
+                <p id="last-update" class="text-[11px] text-gray-500 mt-1.5">
                     ធ្វើបច្ចុប្បន្នភាពចុងក្រោយ៖ <span class="text-gray-400">—</span>
                 </p>
             </div>
 
-            <!-- Search Bar (always visible) -->
-            <div class="mb-7 relative">
-                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"></i>
+            <!-- Search Bar -->
+            <div class="mb-5 relative">
+                <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
                 <input type="text" id="search-input" placeholder="ស្វែងរក server..." 
-                       class="w-full bg-[#111] border border-[#1f1f1f] rounded-xl pl-11 pr-4 py-3.5 text-gray-100 focus:outline-none focus:border-purple-500/60 transition text-sm placeholder:text-gray-600">
+                       class="w-full pl-10 pr-10 py-3 text-sm placeholder:text-gray-600">
+                <i class="fas fa-sliders-h absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
             </div>
 
-            <!-- ================= MAIN MENU (dynamically filled by JS) ================= -->
-            <div id="main-menu" class="space-y-5"></div>
+            <!-- MAIN MENU -->
+            <div id="main-menu" class="space-y-3"></div>
 
             <!-- Apps Download Section -->
             <div id="apps-view" class="space-y-6 hidden">
@@ -220,15 +218,18 @@
             </div>
 
             <!-- Server List View -->
-            <div id="server-list-view" class="space-y-5 hidden">
-                <div class="flex items-center justify-between mb-8">
-                    <button onclick="backToMain()" class="text-purple-400 flex items-center space-x-3 text-lg">
+            <div id="server-list-view" class="space-y-4 hidden">
+                <div class="flex items-center gap-3 mb-5">
+                    <button onclick="backToMain()" class="w-9 h-9 rounded-xl flex items-center justify-center text-purple-300 hover:bg-purple-500/10 transition">
                         <i class="fas fa-arrow-left"></i>
-                        <span>ត្រឡប់ក្រោយ</span>
                     </button>
-                    <h2 id="server-category-title" class="text-2xl font-semibold text-purple-400"></h2>
+                    <div class="flex-1 min-w-0">
+                        <h2 id="server-category-title" class="text-lg font-bold text-white truncate"></h2>
+                        <p id="server-category-sub" class="text-[11px] text-gray-500 mt-0.5"></p>
+                    </div>
+                    <i class="fas fa-shield-alt text-purple-400/70"></i>
                 </div>
-                <div id="servers-container" class="space-y-4"></div>
+                <div id="servers-container" class="space-y-3"></div>
             </div>
 
             <!-- Notifications View -->
@@ -324,15 +325,15 @@
     </div>
 
     <!-- Bottom Navigation Bar -->
-    <div id="bottom-nav" class="fixed bottom-0 left-0 right-0 bg-[#0d0d0d] border-t border-[#1a1a1a] py-4 px-8 z-50 hidden shadow-2xl shadow-black/50">
+    <div id="bottom-nav" class="fixed bottom-0 left-0 right-0 py-3 px-8 z-50 hidden">
         <div class="max-w-md mx-auto flex justify-around items-center">
-            <button onclick="backToMain()" class="flex flex-col items-center text-gray-300 hover:text-purple-400 transition">
-                <i class="fas fa-home text-3xl mb-1"></i>
-                <span class="text-xs mt-1">ផ្ទះ</span>
+            <button onclick="backToMain()" class="flex flex-col items-center active transition">
+                <i class="fas fa-home text-2xl mb-0.5"></i>
+                <span class="text-[11px] mt-0.5 font-medium">ផ្ទះ</span>
             </button>
-            <button onclick="showMyIP()" class="flex flex-col items-center text-gray-300 hover:text-purple-400 transition">
-                <i class="fas fa-network-wired text-3xl mb-1"></i>
-                <span class="text-xs mt-1">Check IP</span>
+            <button onclick="showMyIP()" class="flex flex-col items-center transition">
+                <i class="fas fa-network-wired text-2xl mb-0.5"></i>
+                <span class="text-[11px] mt-0.5 font-medium">Check IP</span>
             </button>
         </div>
     </div>

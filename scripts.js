@@ -321,8 +321,8 @@ function parseExpiryDate(str) {
  * - green >15d / >50%, yellow 8–15d, red ≤7d
  */
 function updateExpiryProgress(expiryDateStr) {
-    const R = 30;
-    const CIRCUMFERENCE = 2 * Math.PI * R; // ≈ 188.496
+    const R = 28;
+    const CIRCUMFERENCE = 2 * Math.PI * R; // ≈ 175.93
     const ring = document.getElementById('expiry-ring-fill');
     const percentEl = document.getElementById('expiry-percent');
     const displayEl = document.getElementById('expiry-display');
@@ -360,9 +360,9 @@ function updateExpiryProgress(expiryDateStr) {
     if (daysLeft <= 7 || percent <= 20) colorClass = 'red';
     else if (daysLeft <= 15 || percent <= 50) colorClass = 'yellow';
 
-    const strokeColor = colorClass === 'green' ? '#22c55e'
-                      : colorClass === 'yellow' ? '#eab308'
-                      : '#ef4444';
+    const strokeColor = colorClass === 'green' ? '#34d399'
+                      : colorClass === 'yellow' ? '#fbbf24'
+                      : '#f87171';
 
     // Update ring (attributes + style for max browser support)
     ring.classList.remove('green', 'yellow', 'red');
@@ -471,7 +471,7 @@ function showPingResult(element, ms) {
         element.className = 'text-xs text-red-400';    
     } else if (ms < 200) {    
         element.textContent = ms + 'ms';    
-        element.className = 'text-xs text-green-400 font-medium';    
+        element.className = 'text-xs text-emerald-400 font-medium';    
     } else if (ms < 300) {    
         element.textContent = ms + 'ms';    
         element.className = 'text-xs text-yellow-400 font-medium';    
@@ -1043,7 +1043,7 @@ function renderMainMenu() {
         const delay = (index * 0.05) + 0.05;
 
         const card = document.createElement('div');
-        card.className = `card-item card-bg rounded-2xl p-5 flex items-center justify-between card-hover cursor-pointer`;
+        card.className = `card-item card-bg rounded-2xl px-4 py-3.5 flex items-center justify-between card-hover cursor-pointer`;
         card.style.animationDelay = `${delay}s`;
 
         let countHTML = '';
@@ -1063,13 +1063,13 @@ function renderMainMenu() {
                 if (servers > 0 && apps > 0) {
                     subtitle = `${servers} servers • ${apps} apps`;
                 } else if (servers > 0 && apps === 0) {
-                    subtitle = `${servers} servers • <span class="text-green-400" id="active-${categoryKey}">0</span> active`;
+                    subtitle = `${servers} servers • <span class="text-emerald-400" id="active-${categoryKey}">0</span> active`;
                 } else if (servers === 0 && apps > 0) {
                     subtitle = `${apps} apps`;
                 }
 
                 countHTML = `
-                    <p class="text-sm text-gray-400 mt-1" id="count-${categoryKey}">
+                    <p class="text-xs text-gray-500 mt-0.5" id="count-${categoryKey}">
                         ${subtitle}
                     </p>
                 `;
@@ -1126,22 +1126,25 @@ function renderMainMenu() {
         let iconHTML = '';
         if (iconUrl) {
             iconHTML = `
-                <div class="menu-icon-wrap w-14 h-14 rounded-xl flex items-center justify-center overflow-hidden relative">
+                <div class="menu-icon-wrap overflow-hidden relative" style="background:linear-gradient(135deg,#2a2150,#1a1630);">
                     <img
                         src="${iconUrl}"
                         alt="${item.title}"
-                        class="w-full h-full object-cover rounded-full"
+                        class="w-full h-full object-cover"
+                        style="border-radius:14px;"
                         loading="lazy"
-                        onerror="this.style.display='none'; this.parentElement.classList.add('${item.iconBg || 'bg-gray-900'}');"
+                        onerror="this.style.display='none';"
                     >
                     ${badgeHTML}
                 </div>
             `;
         } else {
             const faClass = iconValue || 'fas fa-circle';
+            const bg = item.iconBg || 'bg-purple-600/20';
+            const col = item.iconColor || 'text-purple-400';
             iconHTML = `
-                <div class="menu-icon-wrap w-14 h-14 ${item.iconBg || 'bg-gray-900'} rounded-xl flex items-center justify-center shadow-lg relative">
-                    <i class="${faClass} text-3xl ${item.iconColor || 'text-gray-400'}"></i>
+                <div class="menu-icon-wrap ${bg} relative shadow-lg" style="box-shadow:0 4px 14px rgba(109,40,217,0.25);">
+                    <i class="${faClass} text-2xl ${col}"></i>
                     ${badgeHTML}
                 </div>
             `;
@@ -1152,25 +1155,24 @@ function renderMainMenu() {
         const showSubBtn = !!categoryKey && serversCount > 0;
 
         card.innerHTML = `
-            <div class="flex items-center space-x-5">
+            <div class="flex items-center space-x-3.5">
                 ${iconHTML}
-                <div>
-                    <h2 class="text-lg font-medium text-gray-100">${item.title}</h2>
+                <div class="min-w-0">
+                    <h2 class="text-[15px] font-semibold text-white leading-tight">${item.title}</h2>
                     ${countHTML}
                 </div>
             </div>
 
-            <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-2.5">
                 ${showSubBtn ? `
                   <button
                     type="button"
-                    class="sub-btn px-3 py-1 text-xs font-semibold rounded-lg bg-gray-900 text-green-400 border border-green-500/30 hover:bg-gray-800"
+                    class="sub-btn"
                     data-cat="${categoryKey}">
                     SUB
                   </button>
                 ` : ''}
-
-                <i class="fas fa-chevron-right text-gray-500 chevron-hover"></i>
+                <i class="fas fa-chevron-right text-sm chevron-hover"></i>
             </div>
         `;
 
@@ -1209,7 +1211,7 @@ function renderMainMenu() {
                                 const apps = categoryApps[categoryKey] || 0;
                                 let html = `${categoryServers[categoryKey]} servers`;
                                 if (apps > 0) html += ` • ${apps} apps`;
-                                html += ` • <span class="text-green-400">${activeCounts[categoryKey] || 0}</span> active`;
+                                html += ` • <span class="text-emerald-400">${activeCounts[categoryKey] || 0}</span> active`;
                                 countEl.innerHTML = html;
                             }
                         }
@@ -1355,26 +1357,29 @@ async function renderServerList(list) {
                         </span>    
                     </div>    
                 </div>    
-            ` : `<h3 class="text-base font-semibold text-gray-100">${item.title}</h3>`;    
+            ` : `<h3 class="text-sm font-semibold text-white">${item.title}</h3>`;    
 
             div.innerHTML = `    
                 <div class="server-card">    
                     <div class="server-info">    
                         <div class="flex items-center space-x-4">    
-                            <div class="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-gray-800 server-icon-img">    
+                            <div class="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 server-icon-img" style="background:#1a1630;">    
                                 ${iconHTML}    
                             </div>    
                             <div class="flex-1 min-w-0">    
-                                ${scrollingTitle}    
-                                <p class="text-sm text-gray-400 truncate-text" title="${configText}">${shortText}</p>    
+                                <div class="flex items-center gap-1.5 mb-0.5">
+                                  <span style="width:6px;height:6px;border-radius:50%;background:#a78bfa;display:inline-block;flex-shrink:0;"></span>
+                                  ${scrollingTitle}
+                                </div>
+                                <p class="text-xs text-gray-500 truncate-text" title="${configText}">${shortText}</p>    
                             </div>    
                         </div>    
                     </div>    
 
                     <div class="server-actions">    
-                        <span class="ping-result text-sm font-medium" data-ip="${serverIP || ''}">...</span>    
+                        <span class="ping-result text-xs font-semibold text-emerald-400" data-ip="${serverIP || ''}">...</span>    
                         <button onclick="copyText('${configText.replace(/'/g, "\\'")}')"    
-                                class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition text-sm font-medium">    
+                                class="text-white flex items-center gap-1.5 transition font-medium text-xs">    
                             <i class="fas fa-copy"></i>    
                             <span>ចម្លង</span>    
                         </button>    
