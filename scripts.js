@@ -1487,3 +1487,496 @@ document.addEventListener('DOMContentLoaded', () => {
 function initApp() {    
     console.log("AnajakVPN client initialized - with fixed subdomain support");    
 }
+// ================== SPEED TEST ==================
+(function initSpeedTest() {
+  const ARC_LEN = 251.3;
+  const MAX_SPEED = 100;
+  const PING_URL = "https://www.cloudflare.com/cdn-cgi/trace";
+  const DL_URLS = [
+    "https://speed.cloudflare.com/__down?bytes=25000000",
+    "https://speed.cloudflare.com/__down?bytes=10000000",
+    "https://speed.cloudflare.com/__down?bytes=5000000"
+  ];
+  const UL_URL = "https://speed.cloudflare.com/__up";
+
+  let stGeoInfo = null;
+  let stAbort = null;
+  let stTesting = false;
+  let liveChart = null;
+  let dlChart = null;
+  let ulChart = null;
+  let chartsReady = false;
+
+  function $(id) { return document.getElementById(id); }
+
+  function createChart(canvas, color) {
+    if (!canvas) return null;
+    const ctx = canvas.getContext("2d");
+    const data = [];
+    const maxPoints = 40;
+
+    function resize() {
+      const dpr = window.devicePixelRatio || 1;
+      const parent = canvas.parentElement;
+      if (!parent) return;
+      const rect = parent.getBoundingClientRect();
+      if (rect.width < 1) return;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    return {
+      push: function (v) {
+        data.push(v);
+        if (data.length > maxPoints) data.shift();
+        this.draw();
+      },
+      clear: function () {
+        data.length = 0;
+        this.draw();
+      },
+      draw: function () {
+        const parent = canvas.parentElement;
+        if (!parent) return;
+        const w = parent.clientWidth;
+        const h = parent.clientHeight;
+        if (w < 1 || h < 1) return;
+        resize();
+        ctx.clearRect(0, 0, w, h);
+        if (data.length < 2) return;
+        const max = Math.max.apply(null, data.concat([1]));
+        const range = max || 1;
+
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        data.forEach(function (v, i) {
+          const x = (i / (maxPoints - 1)) * w;
+          const y = h - (v / range) * (h - 4) - 2;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        const lastX = ((data.length - 1) / (maxPoints - 1)) * w;
+        ctx.lineTo(lastX, h);
+        ctx.lineTo(0, h);
+        ctx.closePath();
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, color + "40");
+        grad.addColorStop(1, color + "00");
+        ctx.fillStyle = grad;
+        ctx.fill();
+      },
+      resize: resize
+    };
+  }
+
+  function ensureCharts() {
+    if (chartsReady) return;
+    liveChart = createChart($("st-liveChart"), "#a855f7");
+    dlChart = createChart($("st-dlChart"), "#c084fc");
+    ulChart = createChart($("st-ulChart"), "#a78bfa");
+    chartsReady = true;
+  }
+
+  function setGauge(speedMbps, isDownload) {
+    if (isDownload === undefined) isDownload = true;
+    const progress = $("st-gaugeProgress");
+    const needle = $("st-needleGroup");
+    const valueEl = $("st-gaugeValue");
+    const unitEl = $("st-gaugeUnit");
+    if (!progress || !needle || !valueEl || !unitEl) return;
+
+    const t = Math.min(Math.max(speedMbps / MAX_SPEED, 0), 1);
+    progress.style.strokeDashoffset = String(ARC_LEN * (1 - t));
+    const angle = -90 + t * 180;
+    needle.style.transform = "rotate(" + angle + "deg)";
+    needle.style.transformOrigin = "100px 110px";
+    valueEl.textContent = speedMbps.toFixed(2);
+    unitEl.innerHTML = isDownload
+      ? '<i class="fas fa-arrow-down" aria-hidden="true"></i> Mbps'
+      : '<i class="fas fa-arrow-up" aria-hidden="true"></i> Mbps';
+  }
+
+  function setPhase(text, icon) {
+    const el = $("st-phaseText");
+    if (!el) return;
+    if (text) {
+      el.innerHTML = (icon ? '<i class="fas ' + icon + '" aria-hidden="true"></i> ' : "") + text;
+      el.classList.add("visible");
+    } else {
+      el.classList.remove("visible");
+      el.innerHTML = "";
+    }
+  }
+
+  function sleep(ms) {
+    return new Promise(function (r) { setTimeout(r, ms); });
+  }
+
+  function guessNetworkType() {
+    const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (!c) return "Wi-Fi";
+    const t = (c.type || "").toLowerCase();
+    const e = (c.effectiveType || "").toLowerCase();
+    if (t === "cellular" || e === "2g" || e === "3g" || e === "4g") return "Mobile Data";
+    if (t === "wifi") return "Wi-Fi";
+    if (t === "ethernet") return "Ethernet";
+    if (e === "4g") return "Mobile Data";
+    return "Wi-Fi";
+  }
+
+  async function fetchGeoInfo() {
+    const apis = [
+      {
+        url: "https://ipapi.co/json/",
+        parse: function (d) {
+          return {
+            ip: d.ip,
+            city: d.city,
+            region: d.region,
+            country: d.country_name,
+            countryCode: d.country_code,
+            isp: (d.org || d.asn || "").replace(/^AS\d+\s*/i, ""),
+            networkType: guessNetworkType()
+          };
+        }
+      },
+      {
+        url: "https://ip-api.com/json/?fields=status,country,countryCode,regionName,city,isp,org,query,as",
+        parse: function (d) {
+          return {
+            ip: d.query,
+            city: d.city,
+            region: d.regionName,
+            country: d.country,
+            countryCode: d.countryCode,
+            isp: (d.isp || d.org || "").replace(/^AS\d+\s*/i, ""),
+            networkType: guessNetworkType()
+          };
+        }
+      },
+      {
+        url: "https://ipinfo.io/json",
+        parse: function (d) {
+          return {
+            ip: d.ip,
+            city: d.city,
+            region: d.region,
+            country: d.country,
+            countryCode: d.country,
+            isp: (d.org || "").replace(/^AS\d+\s*/i, ""),
+            networkType: guessNetworkType()
+          };
+        }
+      }
+    ];
+
+    for (let i = 0; i < apis.length; i++) {
+      try {
+        const res = await fetch(apis[i].url, { cache: "no-store" });
+        if (!res.ok) continue;
+        const data = await res.json();
+        const info = apis[i].parse(data);
+        if (info.ip) return info;
+      } catch (_) {}
+    }
+
+    try {
+      const res = await fetch(PING_URL + "?_=" + Date.now(), { cache: "no-store" });
+      const text = await res.text();
+      const ip = (text.match(/ip=([^\n]+)/) || [])[1];
+      const loc = (text.match(/loc=([^\n]+)/) || [])[1];
+      const colo = (text.match(/colo=([^\n]+)/) || [])[1];
+      return {
+        ip: ip || "—",
+        city: colo || "",
+        region: "",
+        country: loc || "—",
+        countryCode: loc || "",
+        isp: "Cloudflare",
+        networkType: guessNetworkType()
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function applyGeoInfo(info) {
+    const ispVal = $("st-ispVal");
+    const networkVal = $("st-networkVal");
+    const ipVal = $("st-ipVal");
+    const countryVal = $("st-countryVal");
+    const serverVal = $("st-serverVal");
+
+    if (!info) {
+      if (ispVal) ispVal.textContent = "Unknown";
+      if (networkVal) networkVal.textContent = guessNetworkType();
+      if (ipVal) ipVal.textContent = "—";
+      if (countryVal) countryVal.textContent = "—";
+      if (serverVal) serverVal.textContent = "Auto";
+      return;
+    }
+    stGeoInfo = info;
+    if (ispVal) ispVal.textContent = info.isp ? info.isp.slice(0, 28) : "Unknown";
+    if (networkVal) networkVal.textContent = info.networkType || "Wi-Fi";
+    if (ipVal) ipVal.textContent = info.ip || "—";
+    if (countryVal) countryVal.textContent = info.country || "—";
+    if (serverVal) {
+      serverVal.textContent = info.city || info.countryCode || "Auto";
+      serverVal.title = [info.city, info.region, info.country].filter(Boolean).join(", ");
+    }
+
+    ["st-netIsp", "st-netNetwork", "st-netIp", "st-netCountry"].forEach(function (id, i) {
+      setTimeout(function () {
+        const el = $(id);
+        if (el) el.classList.add("visible");
+      }, 80 + i * 60);
+    });
+  }
+
+  async function loadNetworkInfo() {
+    const ispVal = $("st-ispVal");
+    const networkVal = $("st-networkVal");
+    const ipVal = $("st-ipVal");
+    const countryVal = $("st-countryVal");
+    const serverVal = $("st-serverVal");
+    if (ispVal) ispVal.textContent = "…";
+    if (networkVal) networkVal.textContent = "…";
+    if (ipVal) ipVal.textContent = "…";
+    if (countryVal) countryVal.textContent = "…";
+    if (serverVal) serverVal.textContent = "…";
+
+    const info = await fetchGeoInfo();
+    applyGeoInfo(info);
+  }
+
+  async function measurePing(samples) {
+    samples = samples || 6;
+    const times = [];
+    for (let i = 0; i < samples; i++) {
+      if (stAbort && stAbort.signal.aborted) throw new Error("aborted");
+      const t0 = performance.now();
+      try {
+        await fetch(PING_URL + "?_=" + Date.now(), {
+          cache: "no-store",
+          mode: "cors",
+          signal: stAbort.signal
+        });
+        times.push(performance.now() - t0);
+      } catch (e) {
+        if (e.name === "AbortError") throw e;
+        times.push(performance.now() - t0);
+      }
+      await sleep(70);
+    }
+    const avg = times.reduce(function (a, b) { return a + b; }, 0) / times.length;
+    let jitterSum = 0;
+    for (let i = 1; i < times.length; i++) {
+      jitterSum += Math.abs(times[i] - times[i - 1]);
+    }
+    const jitter = times.length > 1 ? jitterSum / (times.length - 1) : 0;
+    return { ping: Math.round(avg), jitter: Math.round(jitter) };
+  }
+
+  async function measureDownload(durationMs) {
+    durationMs = durationMs || 8500;
+    const start = performance.now();
+    let totalBytes = 0;
+    let lastReport = start;
+    const streams = 3;
+    const workers = [];
+
+    for (let s = 0; s < streams; s++) {
+      workers.push((async function () {
+        while (performance.now() - start < durationMs) {
+          if (stAbort && stAbort.signal.aborted) return;
+          const url = DL_URLS[s % DL_URLS.length] + "&r=" + Math.random();
+          try {
+            const res = await fetch(url, {
+              cache: "no-store",
+              signal: stAbort.signal
+            });
+            if (!res.ok || !res.body) continue;
+            const reader = res.body.getReader();
+            while (true) {
+              if (performance.now() - start >= durationMs) {
+                reader.cancel().catch(function () {});
+                return;
+              }
+              const result = await reader.read();
+              if (result.done) break;
+              totalBytes += result.value.length;
+              const now = performance.now();
+              if (now - lastReport > 100) {
+                const elapsed = (now - start) / 1000;
+                const mbps = (totalBytes * 8) / (elapsed * 1e6);
+                setGauge(mbps, true);
+                const dlVal = $("st-dlValue");
+                if (dlVal) dlVal.textContent = mbps.toFixed(2);
+                if (liveChart) liveChart.push(mbps);
+                if (dlChart) dlChart.push(mbps);
+                lastReport = now;
+              }
+            }
+          } catch (e) {
+            if (e.name === "AbortError") return;
+          }
+        }
+      })());
+    }
+
+    await Promise.all(workers);
+    const elapsed = Math.max((performance.now() - start) / 1000, 0.001);
+    return { avg: (totalBytes * 8) / (elapsed * 1e6) };
+  }
+
+  async function measureUpload(durationMs) {
+    durationMs = durationMs || 6500;
+    const start = performance.now();
+    let totalBytes = 0;
+    let lastReport = start;
+    const chunkSize = 256 * 1024;
+    const blob = new Blob([new Uint8Array(chunkSize)]);
+
+    while (performance.now() - start < durationMs) {
+      if (stAbort && stAbort.signal.aborted) break;
+      try {
+        await fetch(UL_URL, {
+          method: "POST",
+          body: blob,
+          cache: "no-store",
+          mode: "cors",
+          signal: stAbort.signal
+        });
+        totalBytes += chunkSize;
+        const now = performance.now();
+        if (now - lastReport > 130) {
+          const elapsed = (now - start) / 1000;
+          const mbps = (totalBytes * 8) / (elapsed * 1e6);
+          setGauge(mbps, false);
+          const ulVal = $("st-ulValue");
+          if (ulVal) ulVal.textContent = mbps.toFixed(2);
+          if (liveChart) liveChart.push(mbps);
+          if (ulChart) ulChart.push(mbps);
+          lastReport = now;
+        }
+      } catch (e) {
+        if (e.name === "AbortError") break;
+        break;
+      }
+    }
+
+    const elapsed = Math.max((performance.now() - start) / 1000, 0.001);
+    return { avg: (totalBytes * 8) / (elapsed * 1e6) };
+  }
+
+  async function runSpeedTest() {
+    if (stTesting) return;
+    stTesting = true;
+    stAbort = new AbortController();
+
+    const startBtn = $("st-startBtn");
+    const gaugeProgress = $("st-gaugeProgress");
+    if (!startBtn) { stTesting = false; return; }
+
+    startBtn.classList.add("testing");
+    startBtn.classList.remove("done");
+    const btnText = startBtn.querySelector(".st-btn-text");
+    if (btnText) btnText.textContent = "Testing...";
+    startBtn.disabled = true;
+    if (gaugeProgress) gaugeProgress.classList.add("testing");
+
+    setGauge(0, true);
+    const dlValue = $("st-dlValue");
+    const ulValue = $("st-ulValue");
+    const pingVal = $("st-pingVal");
+    const jitterVal = $("st-jitterVal");
+    if (dlValue) dlValue.textContent = "0.00";
+    if (ulValue) ulValue.textContent = "0.00";
+    if (pingVal) pingVal.textContent = "—";
+    if (jitterVal) jitterVal.textContent = "—";
+    if (liveChart) liveChart.clear();
+    if (dlChart) dlChart.clear();
+    if (ulChart) ulChart.clear();
+
+    if (!stGeoInfo) {
+      setPhase("Finding server…", "fa-server");
+      await loadNetworkInfo();
+    }
+
+    try {
+      setPhase("Measuring latency…", "fa-satellite-dish");
+      const latency = await measurePing();
+      if (pingVal) pingVal.textContent = latency.ping + " ms";
+      if (jitterVal) jitterVal.textContent = latency.jitter + " ms";
+
+      setPhase("Testing download…", "fa-download");
+      const dl = await measureDownload(9000);
+      if (dlValue) dlValue.textContent = dl.avg.toFixed(2);
+      setGauge(dl.avg, true);
+
+      await sleep(300);
+
+      setPhase("Testing upload…", "fa-upload");
+      if (liveChart) liveChart.clear();
+      const ul = await measureUpload(7000);
+      if (ulValue) ulValue.textContent = ul.avg.toFixed(2);
+      setGauge(ul.avg, false);
+
+      setPhase("Test complete", "fa-circle-check");
+      if (btnText) btnText.textContent = "Test Again";
+      startBtn.classList.add("done");
+    } catch (e) {
+      if (e.name !== "AbortError" && e.message !== "aborted") {
+        setPhase("Test failed – check connection", "fa-triangle-exclamation");
+        console.error(e);
+      }
+      if (btnText) btnText.textContent = "Start Speed Test";
+    } finally {
+      stTesting = false;
+      startBtn.classList.remove("testing");
+      startBtn.disabled = false;
+      if (gaugeProgress) gaugeProgress.classList.remove("testing");
+      setTimeout(function () { setPhase(""); }, 2800);
+    }
+  }
+
+  window.openSpeedTest = function openSpeedTest() {
+    const overlay = $("speed-test-overlay");
+    if (!overlay) return;
+    overlay.classList.add("show");
+    document.body.style.overflow = "hidden";
+    ensureCharts();
+    setGauge(0, true);
+    const dlCard = $("st-dlCard");
+    const ulCard = $("st-ulCard");
+    if (dlCard) dlCard.classList.add("visible");
+    if (ulCard) ulCard.classList.add("visible");
+    if (!stGeoInfo) loadNetworkInfo();
+  };
+
+  window.closeSpeedTest = function closeSpeedTest() {
+    const overlay = $("speed-test-overlay");
+    if (!overlay) return;
+    overlay.classList.remove("show");
+    document.body.style.overflow = "";
+    if (stAbort) stAbort.abort();
+  };
+
+  document.addEventListener("DOMContentLoaded", function () {
+    const startBtn = $("st-startBtn");
+    if (startBtn) startBtn.addEventListener("click", runSpeedTest);
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") {
+        const overlay = $("speed-test-overlay");
+        if (overlay && overlay.classList.contains("show")) closeSpeedTest();
+      }
+    });
+  });
+})();

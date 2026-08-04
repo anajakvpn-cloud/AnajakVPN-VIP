@@ -875,3 +875,448 @@ button .notification-badge {
     animation: none;
   }
 }
+
+/* ═══════════════════════════════════════════
+   Speed Test Bottom Sheet
+   ═══════════════════════════════════════════ */
+.speed-test-sheet {
+  max-height: min(92vh, 900px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  text-align: left;
+}
+
+.speed-test-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 2px 4px;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.st-metrics {
+  display: flex;
+  background: linear-gradient(160deg, #1a1630 0%, #141222 100%);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 4px;
+  margin-bottom: 10px;
+}
+
+.st-metric {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  position: relative;
+  min-width: 0;
+}
+
+.st-metric:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 18%;
+  height: 64%;
+  width: 1px;
+  background: var(--border);
+}
+
+.st-metric-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+
+.st-metric-icon.st-ping {
+  background: rgba(139, 92, 246, 0.2);
+  color: #c4b5fd;
+}
+.st-metric-icon.st-jitter {
+  background: rgba(59, 130, 246, 0.18);
+  color: #93c5fd;
+}
+.st-metric-icon.st-server {
+  background: rgba(52, 211, 153, 0.15);
+  color: #6ee7b7;
+}
+
+.st-metric-label {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.st-metric-value {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  text-align: center;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+/* Gauge */
+.st-gauge-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 280px;
+  margin: 4px auto 0;
+  aspect-ratio: 1.55;
+}
+
+.st-gauge-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.st-gauge-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 14;
+  stroke-linecap: round;
+}
+
+.st-gauge-progress {
+  fill: none;
+  stroke-width: 14;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.4));
+}
+
+.st-gauge-progress.testing {
+  animation: st-pulse-glow 1.6s ease-in-out infinite;
+}
+
+@keyframes st-pulse-glow {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.35)); }
+  50% { filter: drop-shadow(0 0 14px rgba(192, 132, 252, 0.6)); }
+}
+
+.st-gauge-needle {
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.st-gauge-center {
+  position: absolute;
+  left: 50%;
+  top: 56%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+}
+
+.st-gauge-value {
+  font-size: clamp(28px, 8vw, 36px);
+  font-weight: 800;
+  letter-spacing: -1.2px;
+  line-height: 1;
+  background: linear-gradient(180deg, #fff 15%, #c4b5fd 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.st-gauge-unit {
+  font-size: 12px;
+  color: #a78bfa;
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.st-gauge-unit i { font-size: 10px; }
+
+.st-gauge-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-size: 9px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.st-gauge-labels span { position: absolute; }
+
+.st-live-chart {
+  height: 32px;
+  margin: 2px 4px 12px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.st-live-chart canvas { width: 100%; height: 100%; display: block; }
+
+/* Speed cards */
+.st-speed-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.st-speed-card {
+  background: linear-gradient(160deg, #1a1630 0%, #141222 100%);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 10px 8px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.st-speed-card.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.st-speed-card-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 4px;
+}
+
+.st-speed-card-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+
+.st-speed-card-icon.st-dl {
+  background: rgba(168, 85, 247, 0.18);
+  color: #c084fc;
+}
+
+.st-speed-card-icon.st-ul {
+  background: rgba(139, 92, 246, 0.2);
+  color: #a78bfa;
+}
+
+.st-speed-card-label {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.st-speed-card-value {
+  font-size: clamp(20px, 5.5vw, 24px);
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.st-speed-card-unit {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 1px;
+  font-weight: 500;
+}
+
+.st-mini-chart {
+  height: 22px;
+  margin-top: 6px;
+}
+
+.st-mini-chart canvas { width: 100%; height: 100%; display: block; }
+
+/* Network grid */
+.st-net-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-bottom: 6px;
+}
+
+.st-net-item {
+  background: linear-gradient(160deg, #1a1630 0%, #141222 100%);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.st-net-item.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.st-net-item-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.st-net-item-icon.st-isp {
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+}
+.st-net-item-icon.st-network {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+}
+.st-net-item-icon.st-ip {
+  background: rgba(139, 92, 246, 0.18);
+  color: #a78bfa;
+}
+.st-net-item-icon.st-country {
+  background: rgba(251, 191, 36, 0.14);
+  color: #fcd34d;
+}
+
+.st-net-item-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.st-net-item-label {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 500;
+  margin-bottom: 1px;
+}
+
+.st-net-item-value {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+.st-phase-text {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  min-height: 16px;
+  margin: 4px 0 2px;
+  opacity: 0;
+  transition: opacity 0.25s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.st-phase-text.visible { opacity: 1; }
+.st-phase-text i { font-size: 10px; color: #a78bfa; }
+
+.st-footer {
+  padding: 8px 0 0;
+  flex-shrink: 0;
+}
+
+.st-action-btn {
+  width: 100%;
+  min-height: 50px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(105deg, #7c3aed 0%, #a855f7 50%, #c084fc 100%);
+  color: #fff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transition: transform 0.12s, opacity 0.2s, box-shadow 0.2s;
+  box-shadow: 0 6px 22px rgba(124, 58, 237, 0.35);
+  letter-spacing: -0.2px;
+  position: relative;
+  padding: 10px 14px;
+}
+
+.st-action-btn .st-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.st-action-btn .st-btn-sub {
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.85;
+  display: none;
+}
+
+.st-action-btn.done .st-btn-sub { display: block; }
+
+.st-action-btn:hover {
+  box-shadow: 0 8px 28px rgba(124, 58, 237, 0.45);
+}
+
+.st-action-btn:active { transform: scale(0.98); }
+.st-action-btn:disabled { opacity: 0.85; cursor: default; }
+
+.st-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2.5px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: st-spin 0.7s linear infinite;
+  display: none;
+}
+
+.st-action-btn.testing .st-spinner { display: block; }
+.st-action-btn.testing .st-btn-icon { display: none; }
+
+@keyframes st-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 359px) {
+  .st-speed-cards,
+  .st-net-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-gauge-progress,
+  .st-gauge-needle,
+  .st-speed-card,
+  .st-net-item {
+    transition: none !important;
+  }
+  .st-gauge-progress.testing {
+    animation: none !important;
+  }
+}

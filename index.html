@@ -355,11 +355,15 @@
     </div>
 
     <!-- Bottom Navigation Bar -->
-    <div id="bottom-nav" class="fixed bottom-0 left-0 right-0 py-3 px-8 z-50 hidden">
+    <div id="bottom-nav" class="fixed bottom-0 left-0 right-0 py-3 px-6 z-50 hidden">
         <div class="max-w-md mx-auto flex justify-around items-center">
             <button onclick="backToMain()" class="flex flex-col items-center active transition">
                 <i class="fas fa-home text-2xl mb-0.5"></i>
                 <span class="text-[11px] mt-0.5 font-medium">ផ្ទះ</span>
+            </button>
+            <button onclick="openSpeedTest()" class="flex flex-col items-center transition">
+                <i class="fas fa-gauge-high text-2xl mb-0.5"></i>
+                <span class="text-[11px] mt-0.5 font-medium">Speed Test</span>
             </button>
             <button onclick="showMyIP()" class="flex flex-col items-center transition">
                 <i class="fas fa-network-wired text-2xl mb-0.5"></i>
@@ -410,6 +414,150 @@
         </div>
     </div>
 
+    <!-- Speed Test Bottom Sheet -->
+    <div id="speed-test-overlay" class="bottom-sheet-overlay" onclick="if(event.target===this)closeSpeedTest()">
+        <div class="bottom-sheet speed-test-sheet" role="dialog" aria-modal="true" aria-labelledby="speedTestTitle" onclick="event.stopPropagation()">
+            <div class="bottom-sheet-handle"></div>
+            <div class="flex items-center justify-between mb-3 px-1">
+                <div>
+                    <h2 id="speedTestTitle" class="text-lg font-bold text-white">Speed Test</h2>
+                    <p class="text-xs text-gray-500 mt-0.5">វាស់ល្បឿនអ៊ីនធឺណិតរបស់អ្នក</p>
+                </div>
+                <button type="button" onclick="closeSpeedTest()" class="w-9 h-9 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white transition" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="speed-test-body">
+                <!-- Metrics row -->
+                <div class="st-metrics">
+                    <div class="st-metric">
+                        <div class="st-metric-icon st-ping"><i class="fas fa-satellite-dish"></i></div>
+                        <span class="st-metric-label">Ping</span>
+                        <span class="st-metric-value" id="st-pingVal">—</span>
+                    </div>
+                    <div class="st-metric">
+                        <div class="st-metric-icon st-jitter"><i class="fas fa-wave-square"></i></div>
+                        <span class="st-metric-label">Jitter</span>
+                        <span class="st-metric-value" id="st-jitterVal">—</span>
+                    </div>
+                    <div class="st-metric">
+                        <div class="st-metric-icon st-server"><i class="fas fa-globe"></i></div>
+                        <span class="st-metric-label">Server</span>
+                        <span class="st-metric-value" id="st-serverVal">Auto</span>
+                    </div>
+                </div>
+
+                <!-- Gauge -->
+                <div class="st-gauge-wrap" aria-live="polite" aria-atomic="true">
+                    <svg class="st-gauge-svg" viewBox="0 0 200 130" aria-hidden="true">
+                        <defs>
+                            <linearGradient id="stGaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="#7c3aed"/>
+                                <stop offset="40%" stop-color="#a855f7"/>
+                                <stop offset="70%" stop-color="#c084fc"/>
+                                <stop offset="100%" stop-color="#34d399"/>
+                            </linearGradient>
+                        </defs>
+                        <path class="st-gauge-track" d="M 20 110 A 80 80 0 0 1 180 110" />
+                        <path id="st-gaugeProgress" class="st-gauge-progress"
+                              stroke="url(#stGaugeGrad)"
+                              d="M 20 110 A 80 80 0 0 1 180 110"
+                              stroke-dasharray="251.3"
+                              stroke-dashoffset="251.3" />
+                        <g id="st-needleGroup" class="st-gauge-needle">
+                            <line x1="100" y1="110" x2="100" y2="34" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+                            <circle cx="100" cy="110" r="6.5" fill="#fff"/>
+                            <circle cx="100" cy="110" r="3" fill="#12101e"/>
+                        </g>
+                    </svg>
+                    <div class="st-gauge-center">
+                        <div class="st-gauge-value" id="st-gaugeValue">0.00</div>
+                        <div class="st-gauge-unit" id="st-gaugeUnit">
+                            <i class="fas fa-arrow-down" aria-hidden="true"></i> Mbps
+                        </div>
+                    </div>
+                    <div class="st-gauge-labels" aria-hidden="true">
+                        <span style="left:5%;bottom:5%">0</span>
+                        <span style="right:50%;top:8%">50</span>
+                        <span style="right:3%;bottom:5%">100</span>
+                    </div>
+                </div>
+
+                <div class="st-live-chart" aria-hidden="true">
+                    <canvas id="st-liveChart"></canvas>
+                </div>
+
+                <!-- DL / UL cards -->
+                <div class="st-speed-cards">
+                    <div class="st-speed-card" id="st-dlCard">
+                        <div class="st-speed-card-header">
+                            <div class="st-speed-card-icon st-dl"><i class="fas fa-download"></i></div>
+                            <span class="st-speed-card-label">Download</span>
+                        </div>
+                        <div class="st-speed-card-value" id="st-dlValue">0.00</div>
+                        <div class="st-speed-card-unit">Mbps</div>
+                        <div class="st-mini-chart"><canvas id="st-dlChart"></canvas></div>
+                    </div>
+                    <div class="st-speed-card" id="st-ulCard">
+                        <div class="st-speed-card-header">
+                            <div class="st-speed-card-icon st-ul"><i class="fas fa-upload"></i></div>
+                            <span class="st-speed-card-label">Upload</span>
+                        </div>
+                        <div class="st-speed-card-value" id="st-ulValue">0.00</div>
+                        <div class="st-speed-card-unit">Mbps</div>
+                        <div class="st-mini-chart"><canvas id="st-ulChart"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- Network info grid -->
+                <div class="st-net-grid">
+                    <div class="st-net-item" id="st-netIsp">
+                        <div class="st-net-item-icon st-isp"><i class="fas fa-building"></i></div>
+                        <div class="st-net-item-text">
+                            <div class="st-net-item-label">ISP</div>
+                            <div class="st-net-item-value" id="st-ispVal">—</div>
+                        </div>
+                    </div>
+                    <div class="st-net-item" id="st-netNetwork">
+                        <div class="st-net-item-icon st-network"><i class="fas fa-wifi"></i></div>
+                        <div class="st-net-item-text">
+                            <div class="st-net-item-label">Network</div>
+                            <div class="st-net-item-value" id="st-networkVal">—</div>
+                        </div>
+                    </div>
+                    <div class="st-net-item" id="st-netIp">
+                        <div class="st-net-item-icon st-ip"><i class="fas fa-globe"></i></div>
+                        <div class="st-net-item-text">
+                            <div class="st-net-item-label">IP Address</div>
+                            <div class="st-net-item-value" id="st-ipVal">—</div>
+                        </div>
+                    </div>
+                    <div class="st-net-item" id="st-netCountry">
+                        <div class="st-net-item-icon st-country"><i class="fas fa-flag"></i></div>
+                        <div class="st-net-item-text">
+                            <div class="st-net-item-label">Country</div>
+                            <div class="st-net-item-value" id="st-countryVal">—</div>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="st-phase-text" id="st-phaseText" role="status" aria-live="polite"></p>
+            </div>
+
+            <div class="st-footer">
+                <button type="button" class="st-action-btn" id="st-startBtn">
+                    <span class="st-btn-row">
+                        <i class="fas fa-play st-btn-icon" aria-hidden="true"></i>
+                        <span class="st-btn-text">Start Speed Test</span>
+                        <span class="st-spinner" aria-hidden="true"></span>
+                    </span>
+                    <span class="st-btn-sub">Run a new speed test</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Fullscreen Screenshot Modal -->
     <div id="image-modal" class="fixed inset-0 bg-black bg-opacity-95 hidden z-50 flex items-center justify-center p-4 overflow-auto">
         <span id="modal-close" class="absolute top-6 right-6 text-white text-5xl cursor-pointer z-50">&times;</span>
@@ -436,7 +584,7 @@
         កូដមិនត្រឹមត្រូវ ឬផុតកំណត់!
     </div>
     <!-- Main JavaScript -->
-    <script src="scripts.js?v=1.10.2"></script>
+    <script src="scripts.js?v=1.11.0"></script>
     <script>
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/service-worker.js")
