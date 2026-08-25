@@ -3,6 +3,10 @@
 // Updated: January 15, 2026 - Fixed subdomain replacement instead of IP when copying config  
 const WORKER_URL = "https://anajakvpnvip.panda-hshark.workers.dev";    
 const MAIN_DOMAIN = "anajakvpnvip.filegear-sg.me";  // Used to reconstruct expected subdomains
+// Load vipdata.json directly from GitHub (raw)
+const DATA_URL = "https://raw.githubusercontent.com/anajakvpn-cloud/anajakvipcode/main/vipdata.json";
+// Fallback (same file, github.com path):
+// const DATA_URL = "https://github.com/anajakvpn-cloud/anajakvipcode/raw/refs/heads/main/vipdata.json";
 
 let validCodes = [];    
 let allServers = [];    
@@ -138,20 +142,26 @@ const DevToolsDetector = (function() {
     };    
 })();    
 
-// ================== FETCH LAST COMMIT DATE ==================    
+// ================== FETCH LAST COMMIT DATE (GitHub) ==================    
 async function fetchJsonLastModified() {    
-    try {    
-        const fileInfoRes = await fetch(`${WORKER_URL}/file-info`);    
-        if (!fileInfoRes.ok) return null;    
-
-        const fileData = await fileInfoRes.json();    
-        const lastCommitId = fileData.last_commit_id;    
-
-        const commitRes = await fetch(`${WORKER_URL}/commit/${lastCommitId}`);    
-        if (!commitRes.ok) return null;    
-
-        const commitData = await commitRes.json();    
-        return new Date(commitData.committed_date);    
+    try {
+        // Prefer GitHub commits API for vipdata.json
+        const commitsUrl = "https://api.github.com/repos/anajakvpn-cloud/anajakvipcode/commits?path=vipdata.json&per_page=1";
+        const res = await fetch(commitsUrl, {
+            headers: { 'Accept': 'application/vnd.github.v3+json' },
+            cache: 'no-store'
+        });
+        if (res.ok) {
+            const commits = await res.json();
+            if (Array.isArray(commits) && commits[0]?.commit?.committer?.date) {
+                return new Date(commits[0].commit.committer.date);
+            }
+        }
+        // Fallback: HEAD on raw file for Last-Modified
+        const headRes = await fetch(DATA_URL, { method: 'HEAD', cache: 'no-store' });
+        const lm = headRes.headers.get('Last-Modified');
+        if (lm) return new Date(lm);
+        return null;
     } catch (err) {    
         console.warn("Could not fetch last modified date:", err);    
         return null;    
@@ -650,8 +660,7 @@ async function loadData() {
     }
 
     try {
-        const rawUrl = `${WORKER_URL}/data`;
-        const res = await fetch(rawUrl, { cache: "no-cache" });
+        const res = await fetch(DATA_URL, { cache: "no-cache" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const text = await res.text();
@@ -683,7 +692,7 @@ async function loadData() {
         }
 
     } catch (err) {
-        console.error("Failed to load data from worker:", err);
+        console.error("Failed to load data from GitHub:", err);
         hideGlobalLoading();
         if (loginView) loginView.classList.remove('hidden');
         showToast('មានបញ្ហាផ្ទុកទិន្នន័យ – សូម refresh ទំព័រ');
