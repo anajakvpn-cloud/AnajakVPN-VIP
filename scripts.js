@@ -3,10 +3,8 @@
 // Updated: January 15, 2026 - Fixed subdomain replacement instead of IP when copying config  
 const WORKER_URL = "https://anajakvpnvip.panda-hshark.workers.dev";    
 const MAIN_DOMAIN = "anajakvpnvip.filegear-sg.me";  // Used to reconstruct expected subdomains
-// Load vipdata.json directly from GitHub (raw)
+// Load vipdata.json directly from GitHub (public raw)
 const DATA_URL = "https://raw.githubusercontent.com/anajakvpn-cloud/anajakvipcode/main/vipdata.json";
-// Fallback (same file, github.com path):
-// const DATA_URL = "https://github.com/anajakvpn-cloud/anajakvipcode/raw/refs/heads/main/vipdata.json";
 
 let validCodes = [];    
 let allServers = [];    
@@ -145,7 +143,6 @@ const DevToolsDetector = (function() {
 // ================== FETCH LAST COMMIT DATE (GitHub) ==================    
 async function fetchJsonLastModified() {    
     try {
-        // Prefer GitHub commits API for vipdata.json
         const commitsUrl = "https://api.github.com/repos/anajakvpn-cloud/anajakvipcode/commits?path=vipdata.json&per_page=1";
         const res = await fetch(commitsUrl, {
             headers: { 'Accept': 'application/vnd.github.v3+json' },
@@ -157,7 +154,6 @@ async function fetchJsonLastModified() {
                 return new Date(commits[0].commit.committer.date);
             }
         }
-        // Fallback: HEAD on raw file for Last-Modified
         const headRes = await fetch(DATA_URL, { method: 'HEAD', cache: 'no-store' });
         const lm = headRes.headers.get('Last-Modified');
         if (lm) return new Date(lm);
@@ -229,62 +225,87 @@ function hideGlobalLoading() {
 }
 
 // ================== PREWARM ALL SUBDOMAINS ==================
+function buildLocalSubdomainMap(code, expiry_date) {
+  if (!code || !expiry_date) return;
+
+  // Strip leading @ and non-alphanumeric (same rules as worker)
+  const cleanCode = String(code).trim().toUpperCase().replace(/^@+/, '').replace(/[^A-Z0-9]/g, '');
+  const yyyymmdd = String(expiry_date).replace(/-/g, '').slice(0, 8);
+  if (!cleanCode || yyyymmdd.length !== 8) return;
+
+  const countries = [...new Set(
+    (allServers || []).map(s =>
+      String(s.countrycode || s.country || '')
+        .trim()
+        .toLowerCase()
+    ).filter(cc => cc && /^[a-z]{2}$/.test(cc))
+  )];
+
+  // Always include common fallbacks if list is empty
+  if (countries.length === 0) {
+    ['kh', 'th', 'us', 'vn', 'sg'].forEach(cc => countries.push(cc));
+  }
+
+  countries.forEach(cc => {
+    const domain = `${cc}${cleanCode}${yyyymmdd}.${MAIN_DOMAIN}`;
+    subdomainMap[cc] = domain;
+  });
+
+  try {
+    localStorage.setItem('subdomainMap', JSON.stringify(subdomainMap));
+  } catch (e) {
+    console.warn('Failed to persist subdomainMap', e);
+  }
+  console.log('[Subdomain map built]', subdomainMap);
+}
+
 async function prewarmUserSubdomains(code, expiry_date) {
   if (!code || !expiry_date) return false;
 
+  // Always build local map first so copy-config works even if worker fails
+  buildLocalSubdomainMap(code, expiry_date);
+
   try {
+    const cleanCode = String(code).trim().toUpperCase().replace(/^@+/, '');
     const res = await fetch(`${WORKER_URL}/prewarm-subdomains`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        code: code.trim().toUpperCase(),
-        expiry_date: expiry_date.trim()
+        code: cleanCode,
+        expiry_date: String(expiry_date).trim()
       })
     });
 
     if (!res.ok) {
-      console.warn('Prewarm request failed:', res.status);
-      return false;
+      console.warn('Prewarm request failed:', res.status, '— using local subdomain map');
+      return true; // local map already built
     }
 
     const data = await res.json();
     console.log('Prewarm result:', data);
 
-    // If worker returns list of domains (recommended future improvement)
-    if (data.success && Array.isArray(data.domains)) {
+    // Prefer domains returned by worker
+    if (data.success && Array.isArray(data.domains) && data.domains.length > 0) {
       data.domains.forEach(fullDomain => {
-        const cc = fullDomain.split('.')[0].slice(0, 2).toLowerCase();
-        if (cc.length === 2) {
+        const host = String(fullDomain).split('.')[0] || '';
+        // country is first 2 letters of hostname
+        const cc = host.slice(0, 2).toLowerCase();
+        if (/^[a-z]{2}$/.test(cc)) {
           subdomainMap[cc] = fullDomain;
         }
       });
-    } 
-    // Fallback: reconstruct domains ourselves from known countries
-    else if (data.success) {
-      const cleanCode = code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-      const yyyymmdd = expiry_date.replace(/-/g, '').slice(0, 8);
-
-      const countries = [...new Set(
-        allServers.map(s => 
-          String(s.countrycode || s.country || 'kh')
-            .trim()
-            .toLowerCase()
-        ).filter(Boolean)
-      )];
-
-      countries.forEach(cc => {
-        const domain = `${cc}${cleanCode}${yyyymmdd}.${MAIN_DOMAIN}`;
-        subdomainMap[cc] = domain;
-      });
+      try {
+        localStorage.setItem('subdomainMap', JSON.stringify(subdomainMap));
+      } catch {}
+    } else if (data.success) {
+      // Worker OK but no domains list — keep local map
+      buildLocalSubdomainMap(code, expiry_date);
     }
 
-    // Persist to localStorage
-    localStorage.setItem('subdomainMap', JSON.stringify(subdomainMap));
-
-    return data.success === true;
+    return true;
   } catch (err) {
-    console.error('Prewarm error:', err);
-    return false;
+    console.error('Prewarm error (using local map):', err);
+    return true; // local map already built
   }
 }
 
@@ -633,6 +654,18 @@ async function replacePlaceholdersInConfig(text, serverItem) {
     if (subdomainMap[country]) {
         replacement = subdomainMap[country];
         console.log(`[Subdomain used] ${country} → ${replacement}`);
+    } else if (currentUser?.code && currentUser?.expiry) {
+        // On-the-fly generate if prewarm hasn't run yet
+        const cleanCode = String(currentUser.code).trim().toUpperCase().replace(/^@+/, '').replace(/[^A-Z0-9]/g, '');
+        const yyyymmdd = String(currentUser.expiry).replace(/-/g, '').slice(0, 8);
+        if (cleanCode && yyyymmdd.length === 8 && /^[a-z]{2}$/.test(country)) {
+            replacement = `${country}${cleanCode}${yyyymmdd}.${MAIN_DOMAIN}`;
+            subdomainMap[country] = replacement;
+            try { localStorage.setItem('subdomainMap', JSON.stringify(subdomainMap)); } catch {}
+            console.log(`[Subdomain generated on the fly] ${country} → ${replacement}`);
+        } else {
+            console.warn(`[No subdomain] ${country} → falling back to IP: ${replacement}`);
+        }
     } else {
         console.warn(`[No subdomain] ${country} → falling back to IP: ${replacement}`);
     }
