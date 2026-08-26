@@ -3,8 +3,8 @@
 // Updated: January 15, 2026 - Fixed subdomain replacement instead of IP when copying config  
 const WORKER_URL = "https://anajakvpnvip.panda-hshark.workers.dev";    
 const MAIN_DOMAIN = "anajakvpnvip.filegear-sg.me";  // Used to reconstruct expected subdomains
-// Load vipdata.json directly from GitHub (public raw)
-const DATA_URL = "https://raw.githubusercontent.com/anajakvpn-cloud/anajakvipcode/main/vipdata.json";
+// Load vipdata.json only via Cloudflare Worker (no public GitHub raw)
+const DATA_URL = `${WORKER_URL}/data`;
 
 let validCodes = [];    
 let allServers = [];    
@@ -15,6 +15,35 @@ let mainMenuItems = [];
 let currentUser = null;    
 let hasSeenWarning = false;    
 let readNotifications = JSON.parse(localStorage.getItem("readNotifications") || "[]");    
+
+/** Normalize VIP codes for comparison: trim, strip leading @, uppercase */
+function normalizeCode(code) {
+    return String(code || '').trim().replace(/^@+/, '').toUpperCase().replace(/\s+/g, '');
+}
+
+/** Parse expiry YYYY-MM-DD (or ISO) as end of that calendar day (local time) */
+function parseExpiryEndOfDay(str) {
+    if (!str) return null;
+    const s = String(str).trim();
+    // Prefer YYYY-MM-DD → local end of day
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) {
+        const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 23, 59, 59, 999);
+        return isNaN(d.getTime()) ? null : d;
+    }
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return null;
+    d.setHours(23, 59, 59, 999);
+    return d;
+}
+
+/** True if code entry is still valid (not expired) */
+function isCodeStillValid(entry) {
+    if (!entry) return false;
+    const expiry = parseExpiryEndOfDay(entry.expiry_date || entry.expiry);
+    if (!expiry) return false;
+    return expiry.getTime() >= Date.now();
+}
 
 // Subdomain cache: countryCode (lowercase) → full subdomain
 let subdomainMap = {};    
@@ -140,23 +169,29 @@ const DevToolsDetector = (function() {
     };    
 })();    
 
-// ================== FETCH LAST COMMIT DATE (GitHub) ==================    
+// ================== FETCH LAST MODIFIED (via Worker) ==================    
 async function fetchJsonLastModified() {    
     try {
-        const commitsUrl = "https://api.github.com/repos/anajakvpn-cloud/anajakvipcode/commits?path=vipdata.json&per_page=1";
-        const res = await fetch(commitsUrl, {
-            headers: { 'Accept': 'application/vnd.github.v3+json' },
-            cache: 'no-store'
+        // Prefer Worker /file-info (GitHub API via proxy)
+        const infoRes = await fetch(`${WORKER_URL}/file-info?_=${Date.now()}`, {
+            cache: 'no-store',
+            credentials: 'omit'
         });
-        if (res.ok) {
-            const commits = await res.json();
-            if (Array.isArray(commits) && commits[0]?.commit?.committer?.date) {
-                return new Date(commits[0].commit.committer.date);
+        if (infoRes.ok) {
+            const info = await infoRes.json();
+            const dateStr = info?.commit?.committer?.date
+                || info?.last_modified
+                || info?.updated_at
+                || info?.sha && null;
+            if (info?.commit?.committer?.date) {
+                return new Date(info.commit.committer.date);
+            }
+            // Some proxy shapes expose content metadata
+            if (info?.content?.sha && info?.commit) {
+                return new Date(info.commit.committer?.date || Date.now());
             }
         }
-        const headRes = await fetch(DATA_URL, { method: 'HEAD', cache: 'no-store' });
-        const lm = headRes.headers.get('Last-Modified');
-        if (lm) return new Date(lm);
+        // Fallback: Date header from /data response is not available here; use now
         return null;
     } catch (err) {    
         console.warn("Could not fetch last modified date:", err);    
@@ -674,7 +709,26 @@ async function replacePlaceholdersInConfig(text, serverItem) {
 }    
 
 // ================== MAIN DATA LOADER ==================    
-async function loadData() {
+async function fetchVipDataOnce() {
+    const bust = `_=${Date.now()}`;
+    // Only load via Cloudflare Worker /data (no GitHub raw)
+    const res = await fetch(`${DATA_URL}?${bust}`, {
+        cache: 'no-store',
+        credentials: 'omit',
+        headers: { 'Accept': 'application/json' }
+    });
+    if (!res.ok) {
+        throw new Error(`Worker /data HTTP ${res.status}`);
+    }
+    const text = await res.text();
+    const data = JSON.parse(text);
+    if (!data || typeof data !== 'object') {
+        throw new Error('Invalid JSON from Worker');
+    }
+    return data;
+}
+
+async function loadData(retryCount = 0) {
     // Show loading overlay first (covers login UI until data is ready)
     showGlobalLoading('កំពុងផ្ទុកទិន្នន័យ...', 'សូមរង់ចាំបន្តិច');
 
@@ -682,33 +736,29 @@ async function loadData() {
     const loginView = document.getElementById('login-view');
     if (loginView) loginView.classList.add('hidden');
 
-    await new Promise(resolve => setTimeout(resolve, 800));
+    // Short UX delay only (was 800ms — felt slow on every open)
+    await new Promise(resolve => setTimeout(resolve, 200));
 
     if (DevToolsDetector.isOpen()) {
         console.warn("[Protection] DevTools detected → Blocking data load");
         hideGlobalLoading();
         if (loginView) loginView.classList.remove('hidden');
-        // ... (devtools block UI)
         return;
     }
 
     try {
-        const res = await fetch(DATA_URL, { cache: "no-cache" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const text = await res.text();
-        const data = JSON.parse(text);
+        const data = await fetchVipDataOnce();
 
         try {
             const saved = localStorage.getItem('subdomainMap');
             if (saved) subdomainMap = JSON.parse(saved);
         } catch {}
 
-        validCodes = data.validCodes || [];
-        allServers = data.allServers || [];
+        validCodes = Array.isArray(data.validCodes) ? data.validCodes : [];
+        allServers = Array.isArray(data.allServers) ? data.allServers : [];
         categoryTitles = data.categoryTitles || {};
-        notifications = data.notifications || [];
-        mainMenuItems = data.mainMenuItems || [];
+        notifications = Array.isArray(data.notifications) ? data.notifications : [];
+        mainMenuItems = Array.isArray(data.mainMenuItems) ? data.mainMenuItems : [];
 
         initApp();
         updateNotificationBadge();
@@ -724,11 +774,29 @@ async function loadData() {
             loginView.classList.remove('hidden');
         }
 
+        // Wire Enter key on login input (once)
+        const loginInput = document.getElementById('login-code');
+        if (loginInput && !loginInput.dataset.enterBound) {
+            loginInput.dataset.enterBound = '1';
+            loginInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    checkLoginCode();
+                }
+            });
+        }
+
     } catch (err) {
-        console.error("Failed to load data from GitHub:", err);
+        console.error("Failed to load data:", err);
+        // Retry up to 2 times on network / transient failures
+        if (retryCount < 2) {
+            showGlobalLoading('កំពុងព្យាយាមម្តងទៀត...', `ព្យាយាមលើកទី ${retryCount + 2}`);
+            await new Promise(r => setTimeout(r, 600 + retryCount * 400));
+            return loadData(retryCount + 1);
+        }
         hideGlobalLoading();
         if (loginView) loginView.classList.remove('hidden');
-        showToast('មានបញ្ហាផ្ទុកទិន្នន័យ – សូម refresh ទំព័រ');
+        showToast('មានបញ្ហាផ្ទុកទិន្នន័យ – សូម refresh ទំព័រ ឬពិនិត្យអ៊ីនធឺណិត');
     }
 }
 
@@ -781,7 +849,7 @@ function logout(silent = false) {
 // ================== LOGIN SYSTEM ==================    
 function checkLoginCode() {    
     const input = document.getElementById('login-code').value.trim();    
-    const code = input.toUpperCase();    
+    const code = normalizeCode(input);    
     const errorEl = document.getElementById('login-error');    
 
     if (!code) {    
@@ -790,14 +858,17 @@ function checkLoginCode() {
         return;    
     }    
 
-    const today = new Date();    
-    today.setHours(23, 59, 59, 999);    
+    if (!validCodes.length) {
+        errorEl.textContent = 'ទិន្នន័យមិនទាន់ផ្ទុក – សូម refresh ទំព័រ';    
+        errorEl.classList.remove('hidden');    
+        // Try reload data in background
+        loadData();
+        return;
+    }
 
-    const found = validCodes.find(c => {    
-        if (c.code.toUpperCase() !== code) return false;    
-        const expiry = new Date(c.expiry_date);    
-        return !isNaN(expiry.getTime()) && expiry >= today;    
-    });    
+    const found = validCodes.find(c => 
+        normalizeCode(c.code) === code && isCodeStillValid(c)
+    );    
 
     if (found) {    
         currentUser = { code: found.code, expiry: found.expiry_date };    
@@ -843,16 +914,13 @@ function attemptAutoLogin() {
         // Check if remember duration has expired
         if (now - data.savedAt > REMEMBER_DURATION_MS) {
             console.log('Auto-login expired (remember duration)');
-            clearAppCache();                    // ← Clear all cache
+            clearAppCache();
             return;
         }
 
-        const today = new Date();
-        today.setHours(23, 59, 59, 999);
-
-        const found = validCodes.find(c => 
-            c.code.toUpperCase() === data.code.toUpperCase() &&    
-            new Date(c.expiry_date) >= today
+        const savedNorm = normalizeCode(data.code);
+        const found = validCodes.find(c =>
+            normalizeCode(c.code) === savedNorm && isCodeStillValid(c)
         );
 
         if (found) {
@@ -881,13 +949,13 @@ function attemptAutoLogin() {
         else {
             // Code exists but expired or invalid
             console.log('Auto-login failed: Code expired or not found');
-            clearAppCache();                    // ← Clear all cache
+            clearAppCache();
             localStorage.removeItem('autoLoginData');
         }
     } 
     catch (e) {
         console.warn("Auto-login failed (parse error):", e);
-        clearAppCache();                        // ← Clear all cache
+        clearAppCache();
         localStorage.removeItem('autoLoginData');
     }
 }
