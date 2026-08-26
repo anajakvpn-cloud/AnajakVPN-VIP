@@ -713,15 +713,22 @@ async function fetchVipDataOnce() {
     const bust = `_=${Date.now()}`;
     // Only load via Cloudflare Worker /data (no GitHub raw)
     const res = await fetch(`${DATA_URL}?${bust}`, {
+        method: 'GET',
         cache: 'no-store',
         credentials: 'omit',
-        headers: { 'Accept': 'application/json' }
+        mode: 'cors',
+        headers: { 'Accept': 'application/json,text/plain,*/*' }
     });
+    const bodyText = await res.text();
     if (!res.ok) {
-        throw new Error(`Worker /data HTTP ${res.status}`);
+        throw new Error(`Worker /data HTTP ${res.status}: ${bodyText.slice(0, 80)}`);
     }
-    const text = await res.text();
-    const data = JSON.parse(text);
+    let data;
+    try {
+        data = JSON.parse(bodyText);
+    } catch (e) {
+        throw new Error('Worker returned non-JSON body');
+    }
     if (!data || typeof data !== 'object') {
         throw new Error('Invalid JSON from Worker');
     }
