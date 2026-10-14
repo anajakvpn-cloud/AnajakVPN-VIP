@@ -1,9 +1,29 @@
 // scripts.js - AnajakVPN Client Frontend    
 // Last major update: January 2026    
-// Updated: October 14, 2026 - Shared random-domain hostname by VIP expiry date  
+// Updated: October 14, 2026 - Canonical VIP hostname shared by matching expiry date  
 const WORKER_URL = "https://anajakvpnvip.panda-hshark.workers.dev";    
 const MAIN_DOMAIN = "anajakvpnvip.filegear-sg.me";  // Base domain for generated VIP subdomains
-const SHARED_SUBDOMAIN_KEY = "viphxhxz"; // Shared hostname key for VIP codes with matching expiry dates
+const SHARED_SUBDOMAIN_KEY = "viphxhxz"; // Fallback key only when no matching saved VIP code is found
+
+// Select the first already-existing VIP code with the same expiry date.
+// This makes VIPAAA reuse VIPBBB's hostname when VIPBBB is the established
+// code for that expiry date, instead of generating a hostname from the login code.
+function getCanonicalHostnameKey(expiryDate) {
+  const ymd = String(expiryDate || '').replace(/[^0-9]/g, '').slice(0, 8);
+  if (ymd.length !== 8) return SHARED_SUBDOMAIN_KEY;
+  const entries = Array.isArray(validCodes) ? validCodes : [];
+  for (const entry of entries) {
+    const entryExpiry = String((entry && (entry.expiry_date || entry.expiry)) || '')
+      .replace(/[^0-9]/g, '').slice(0, 8);
+    if (entryExpiry !== ymd) continue;
+    const raw = String(entry.code || entry.vip_code || entry.vipCode || '').trim();
+    if (!raw) continue;
+    // Preserve VIP prefix in hostnames: VIPBBB -> vipbbb.
+    const key = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (key) return key;
+  }
+  return SHARED_SUBDOMAIN_KEY;
+}
 // Load vipdata.json only via Cloudflare Worker (no public GitHub raw)
 const DATA_URL = `${WORKER_URL}/data`;
 
@@ -277,8 +297,8 @@ function buildLocalSubdomainMap(code, expiry_date) {
 
   // Use one shared hostname key so different VIP codes with the same expiry
   // resolve to the same subdomain (for VLESS/V2Ray random-domain placeholders).
-  const cleanCode = SHARED_SUBDOMAIN_KEY;
-  const yyyymmdd = String(canonicalExpiry).replace(/-/g, '').slice(0, 8);
+  const cleanCode = getCanonicalHostnameKey(canonicalExpiry);
+  const yyyymmdd = String(canonicalExpiry).replace(/[^0-9]/g, '').slice(0, 8);
   if (!cleanCode || yyyymmdd.length !== 8) return;
 
   const countries = [...new Set(
@@ -699,8 +719,8 @@ async function replacePlaceholdersInConfig(text, serverItem) {
         console.log(`[Subdomain used] ${country} → ${replacement}`);
     } else if (currentUser?.code && currentUser?.expiry) {
         // On-the-fly generate if prewarm hasn't run yet
-        const cleanCode = SHARED_SUBDOMAIN_KEY;
-        const yyyymmdd = String(currentUser.expiry).replace(/-/g, '').slice(0, 8);
+        const cleanCode = getCanonicalHostnameKey(currentUser.expiry);
+        const yyyymmdd = String(currentUser.expiry).replace(/[^0-9]/g, '').slice(0, 8);
         if (cleanCode && yyyymmdd.length === 8 && /^[a-z]{2}$/.test(country)) {
             replacement = `${country}${cleanCode}${yyyymmdd}.${MAIN_DOMAIN}`;
             subdomainMap[country] = replacement;
@@ -910,7 +930,8 @@ function checkLoginCode() {
         errorEl.classList.add('hidden');    
         showMainHeaderElements();    
 
-        subdomainMap = {};    
+        subdomainMap = {};
+        try { localStorage.removeItem('subdomainMap'); } catch {}
     } else {    
         errorEl.textContent = 'កូដមិនត្រឹមត្រូវ ឬផុតកំណត់ហើយ!';    
         errorEl.classList.remove('hidden');    
