@@ -1,8 +1,9 @@
 // scripts.js - AnajakVPN Client Frontend    
 // Last major update: January 2026    
-// Updated: January 15, 2026 - Fixed subdomain replacement instead of IP when copying config  
+// Updated: October 14, 2026 - Shared random-domain hostname by VIP expiry date  
 const WORKER_URL = "https://anajakvpnvip.panda-hshark.workers.dev";    
-const MAIN_DOMAIN = "anajakvpnvip.filegear-sg.me";  // Used to reconstruct expected subdomains
+const MAIN_DOMAIN = "anajakvpnvip.filegear-sg.me";  // Base domain for generated VIP subdomains
+const SHARED_SUBDOMAIN_KEY = "viphxhxz"; // Shared hostname key for VIP codes with matching expiry dates
 // Load vipdata.json only via Cloudflare Worker (no public GitHub raw)
 const DATA_URL = `${WORKER_URL}/data`;
 
@@ -274,8 +275,9 @@ function buildLocalSubdomainMap(code, expiry_date) {
     : expiry_date;
   if (!canonicalExpiry) return;
 
-  // Strip leading @ and non-alphanumeric (same rules as worker)
-  const cleanCode = String(code).trim().toUpperCase().replace(/^@+/, '').replace(/[^A-Z0-9]/g, '');
+  // Use one shared hostname key so different VIP codes with the same expiry
+  // resolve to the same subdomain (for VLESS/V2Ray random-domain placeholders).
+  const cleanCode = SHARED_SUBDOMAIN_KEY;
   const yyyymmdd = String(canonicalExpiry).replace(/-/g, '').slice(0, 8);
   if (!cleanCode || yyyymmdd.length !== 8) return;
 
@@ -339,23 +341,9 @@ async function prewarmUserSubdomains(code, expiry_date) {
     const data = await res.json();
     console.log('Prewarm result:', data);
 
-    // Prefer domains returned by worker
-    if (data.success && Array.isArray(data.domains) && data.domains.length > 0) {
-      data.domains.forEach(fullDomain => {
-        const host = String(fullDomain).split('.')[0] || '';
-        // country is first 2 letters of hostname
-        const cc = host.slice(0, 2).toLowerCase();
-        if (/^[a-z]{2}$/.test(cc)) {
-          subdomainMap[cc] = fullDomain;
-        }
-      });
-      try {
-        localStorage.setItem('subdomainMap', JSON.stringify(subdomainMap));
-      } catch {}
-    } else if (data.success) {
-      // Worker OK but no domains list — keep local map
-      buildLocalSubdomainMap(code, canonicalExpiry);
-    }
+    // Always keep the shared-key hostname scheme locally. Worker-returned domains
+    // may still use per-code hostnames, so do not let them override this mapping.
+    buildLocalSubdomainMap(code, canonicalExpiry);
 
     return true;
   } catch (err) {
@@ -711,7 +699,7 @@ async function replacePlaceholdersInConfig(text, serverItem) {
         console.log(`[Subdomain used] ${country} → ${replacement}`);
     } else if (currentUser?.code && currentUser?.expiry) {
         // On-the-fly generate if prewarm hasn't run yet
-        const cleanCode = String(currentUser.code).trim().toUpperCase().replace(/^@+/, '').replace(/[^A-Z0-9]/g, '');
+        const cleanCode = SHARED_SUBDOMAIN_KEY;
         const yyyymmdd = String(currentUser.expiry).replace(/-/g, '').slice(0, 8);
         if (cleanCode && yyyymmdd.length === 8 && /^[a-z]{2}$/.test(country)) {
             replacement = `${country}${cleanCode}${yyyymmdd}.${MAIN_DOMAIN}`;
