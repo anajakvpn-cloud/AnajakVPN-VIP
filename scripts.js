@@ -261,11 +261,22 @@ function hideGlobalLoading() {
 
 // ================== PREWARM ALL SUBDOMAINS ==================
 function buildLocalSubdomainMap(code, expiry_date) {
-  if (!code || !expiry_date) return;
+  if (!code) return;
+
+  // Always prefer the expiry date saved on the matching VIP record.
+  // This keeps every country subdomain for this code on the same expiry date.
+  const normalized = normalizeCode(code);
+  const savedEntry = (validCodes || []).find(entry =>
+    normalizeCode(entry && (entry.code || entry.vip_code || entry.vipCode)) === normalized
+  );
+  const canonicalExpiry = savedEntry
+    ? (savedEntry.expiry_date || savedEntry.expiry)
+    : expiry_date;
+  if (!canonicalExpiry) return;
 
   // Strip leading @ and non-alphanumeric (same rules as worker)
   const cleanCode = String(code).trim().toUpperCase().replace(/^@+/, '').replace(/[^A-Z0-9]/g, '');
-  const yyyymmdd = String(expiry_date).replace(/-/g, '').slice(0, 8);
+  const yyyymmdd = String(canonicalExpiry).replace(/-/g, '').slice(0, 8);
   if (!cleanCode || yyyymmdd.length !== 8) return;
 
   const countries = [...new Set(
@@ -295,10 +306,19 @@ function buildLocalSubdomainMap(code, expiry_date) {
 }
 
 async function prewarmUserSubdomains(code, expiry_date) {
-  if (!code || !expiry_date) return false;
+  if (!code) return false;
+
+  const normalized = normalizeCode(code);
+  const savedEntry = (validCodes || []).find(entry =>
+    normalizeCode(entry && (entry.code || entry.vip_code || entry.vipCode)) === normalized
+  );
+  const canonicalExpiry = savedEntry
+    ? (savedEntry.expiry_date || savedEntry.expiry)
+    : expiry_date;
+  if (!canonicalExpiry) return false;
 
   // Always build local map first so copy-config works even if worker fails
-  buildLocalSubdomainMap(code, expiry_date);
+  buildLocalSubdomainMap(code, canonicalExpiry);
 
   try {
     const cleanCode = String(code).trim().toUpperCase().replace(/^@+/, '');
@@ -307,7 +327,7 @@ async function prewarmUserSubdomains(code, expiry_date) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         code: cleanCode,
-        expiry_date: String(expiry_date).trim()
+        expiry_date: String(canonicalExpiry).trim()
       })
     });
 
@@ -334,7 +354,7 @@ async function prewarmUserSubdomains(code, expiry_date) {
       } catch {}
     } else if (data.success) {
       // Worker OK but no domains list — keep local map
-      buildLocalSubdomainMap(code, expiry_date);
+      buildLocalSubdomainMap(code, canonicalExpiry);
     }
 
     return true;
