@@ -44,7 +44,7 @@
 
     <link rel="icon" href="/icon.png">
     <!-- Custom Styles -->
-    <link href="styles.css" rel="stylesheet">
+    <link href="styles.css?v=1.6.0" rel="stylesheet">
 </head>
 <body class="min-h-screen text-gray-100 pb-24">
 
@@ -109,7 +109,7 @@
         <div class="container mx-auto px-4 pt-6 pb-28 max-w-md">
 
             <!-- Top App Header -->
-            <div class="flex items-center justify-between mb-5">
+            <div id="top-app-header" class="flex items-center justify-between mb-5">
                 <div class="flex items-center gap-2.5">
                     <button type="button" onclick="showNotifications()" class="relative w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center shadow-lg shadow-purple-900/40 text-white hover:brightness-110 transition">
                         <i class="fas fa-bell text-sm"></i>
@@ -244,18 +244,39 @@
             </div>
 
             <!-- Server List View -->
-            <div id="server-list-view" class="space-y-4 hidden">
-                <div class="flex items-center gap-3 mb-5">
-                    <button onclick="backToMain()" class="w-9 h-9 rounded-xl flex items-center justify-center text-purple-300 hover:bg-purple-500/10 transition">
+            <div id="server-list-view" class="hidden">
+                <!-- App brand bar -->
+                <div class="vpn-topbar">
+                    <div class="vpn-brand">
+                        <img src="icons/apps/v2box-logo.svg" alt="AnajakVPN logo" class="vpn-brand-logo" width="52" height="52">
+                        <div class="min-w-0">
+                            <p class="vpn-brand-name">AnajakVPN</p>
+                            <p class="vpn-brand-sub">Dashboard</p>
+                        </div>
+                    </div>
+                    <div class="vpn-premium-pill" aria-label="Premium account">
+                        <i class="fas fa-crown"></i>
+                        <span>Premium</span>
+                        <i class="fas fa-chevron-right vpn-premium-chev"></i>
+                    </div>
+                </div>
+
+                <!-- Page header -->
+                <div class="vpn-pagehead">
+                    <button type="button" onclick="backToMain()" class="vpn-square-btn" aria-label="Back">
                         <i class="fas fa-arrow-left"></i>
                     </button>
-                    <div class="flex-1 min-w-0">
-                        <h2 id="server-category-title" class="text-lg font-bold text-white truncate"></h2>
-                        <p id="server-category-sub" class="text-[11px] text-gray-500 mt-0.5"></p>
+                    <div class="min-w-0 flex-1">
+                        <h2 class="vpn-page-title">VPN Apps</h2>
+                        <p class="vpn-page-sub">Import Subscription</p>
                     </div>
-                    <i class="fas fa-shield-alt text-purple-400/70"></i>
+                    <span class="vpn-square-btn vpn-square-btn-static" aria-hidden="true">
+                        <i class="fas fa-shield-halved"></i>
+                    </span>
                 </div>
-                <div id="servers-container" class="space-y-3"></div>
+                <span id="server-category-title" class="hidden"></span>
+                <span id="server-category-sub" class="hidden"></span>
+                <div id="servers-container"></div>
                 <button type="button" id="refresh-servers-btn" onclick="location.reload()" class="w-full mt-2 py-3 rounded-2xl text-sm font-medium text-purple-300 border border-purple-500/25 bg-purple-500/10 hover:bg-purple-500/15 transition flex items-center justify-center gap-2">
                     <i class="fas fa-sync-alt"></i>
                     Refresh Servers
@@ -359,7 +380,7 @@
         <div class="max-w-md mx-auto flex justify-around items-center">
             <button onclick="backToMain()" class="flex flex-col items-center active transition">
                 <i class="fas fa-home text-2xl mb-0.5"></i>
-                <span class="text-[11px] mt-0.5 font-medium">ផ្ទះ</span>
+                <span class="text-[11px] mt-0.5 font-medium">Home</span>
             </button>
             <button onclick="openSpeedTest()" class="flex flex-col items-center transition">
                 <i class="fas fa-gauge-high text-2xl mb-0.5"></i>
@@ -584,7 +605,7 @@
         កូដមិនត្រឹមត្រូវ ឬផុតកំណត់!
     </div>
     <!-- Main JavaScript -->
-    <script src="scripts.js?v=1.5.6"></script>
+    <script src="scripts.js?v=1.6.0"></script>
     <script>
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/service-worker.js")
