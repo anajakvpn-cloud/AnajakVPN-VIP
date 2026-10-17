@@ -1320,3 +1320,74 @@ button .notification-badge {
     animation: none !important;
   }
 }
+
+
+/* ── Compact, polished VPN app import panel ── */
+.vpn-import-panel {
+  margin: 0 0 18px;
+  padding: 15px 13px 13px;
+  border: 1px solid rgba(139, 92, 246, .24);
+  border-radius: 23px;
+  background:
+    radial-gradient(120% 100% at 0% 0%, rgba(124,58,237,.15), transparent 58%),
+    linear-gradient(145deg, rgba(18,15,39,.98), rgba(10,9,23,.98));
+  box-shadow: 0 12px 28px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.025);
+}
+.vpn-import-heading {
+  display:flex; align-items:center; gap:11px; margin-bottom:15px; min-width:0;
+}
+.vpn-import-mark {
+  flex:0 0 42px; width:42px; height:42px; display:grid; place-items:center;
+  border-radius:50%; color:#d8b4fe; font-size:18px;
+  border:1px solid rgba(168,85,247,.55);
+  background:linear-gradient(145deg,rgba(124,58,237,.24),rgba(35,22,69,.55));
+  box-shadow:0 0 18px rgba(124,58,237,.12), inset 0 0 0 1px rgba(255,255,255,.025);
+}
+.vpn-import-heading > div:nth-child(2) { flex:1; min-width:0; }
+.vpn-import-heading h3 { margin:0; color:#f8f7ff; font-size:15px; font-weight:700; letter-spacing:-.025em; }
+.vpn-import-heading p { margin:3px 0 0; color:#a5a0c3; font-size:11px; line-height:1.35; }
+.vpn-import-chevron { color:#b9a6ff; font-size:15px; padding:0 4px; }
+.vpn-import-grid {
+  display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:5px; align-items:start;
+}
+.vpn-import-app {
+  min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+  gap:7px; padding:8px 1px 7px; border:1px solid transparent; border-radius:15px;
+  background:transparent; color:#fff; cursor:pointer;
+  transition:transform .16s ease,border-color .16s ease,background .16s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+.vpn-import-app:active { transform:scale(.94); }
+.vpn-import-app:hover, .vpn-import-app:focus-visible {
+  outline:none; border-color:rgba(167,139,250,.28); background:rgba(91,33,182,.12);
+}
+.vpn-app-icon {
+  width:clamp(43px, 13vw, 62px); height:clamp(43px, 13vw, 62px);
+  display:grid; place-items:center; position:relative; overflow:hidden; border-radius:50%;
+  background:linear-gradient(145deg,#28213f,#141126);
+  border:1px solid rgba(255,255,255,.13);
+  box-shadow:0 5px 14px rgba(0,0,0,.28), inset 0 0 0 1px rgba(255,255,255,.035);
+}
+.vpn-app-icon img { width:100%; height:100%; display:block; object-fit:cover; border-radius:50%; }
+.vpn-app-icon i { display:none; place-items:center; width:100%; height:100%; color:#c4b5fd; font-size:21px; }
+.vpn-app-name {
+  width:100%; max-width:100%; color:#f5f3ff; font-size:clamp(9px, 2.8vw, 11px);
+  font-weight:650; line-height:1.25; text-align:center; overflow-wrap:anywhere;
+}
+.server-card .truncate-text { display:none !important; }
+@media (min-width:520px) {
+  .vpn-import-panel { padding:18px 18px 15px; }
+  .vpn-import-grid { gap:10px; }
+  .vpn-app-icon { width:64px; height:64px; }
+  .vpn-app-name { font-size:12px; }
+}
+@media (max-width:360px) {
+  .vpn-import-panel { padding:12px 8px 10px; border-radius:19px; }
+  .vpn-import-heading { gap:8px; }
+  .vpn-import-mark { width:36px; height:36px; flex-basis:36px; }
+  .vpn-import-heading h3 { font-size:14px; }
+  .vpn-import-heading p { font-size:10px; }
+  .vpn-import-grid { gap:2px; }
+  .vpn-app-icon { width:42px; height:42px; }
+  .vpn-app-name { font-size:9px; }
+}
