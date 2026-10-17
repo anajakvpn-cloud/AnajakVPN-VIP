@@ -1447,51 +1447,38 @@ button.vpn-square-btn:hover { background:linear-gradient(145deg,rgba(96,48,185,.
    keep the mobile layout above)
    ═══════════════════════════════════════════════════════════════ */
 
-/* Copy All Config card – hidden everywhere except PC */
+/* PC-only items (the Copy button) – hidden everywhere except PC */
 .pc-only { display: none; }
 
-.vpn-copyall-panel {
-  align-items: center;
-  gap: 18px;
-  padding: 18px 22px;
-  border-radius: 20px;
-  border: 1px solid rgba(99, 82, 200, .38);
-  background: linear-gradient(145deg, rgba(33, 26, 76, .78), rgba(18, 14, 44, .9));
-  box-shadow: 0 10px 28px rgba(0, 0, 0, .25), inset 0 1px 0 rgba(255, 255, 255, .03);
-}
-.vpn-copyall-icon {
-  flex: 0 0 52px; width: 52px; height: 52px; display: grid; place-items: center;
-  border-radius: 50%; color: #c9a5ff; font-size: 22px;
-  border: 1.5px solid rgba(139, 92, 246, .7);
-  background: linear-gradient(145deg, rgba(91, 45, 180, .35), rgba(30, 18, 70, .6));
-  box-shadow: 0 0 18px rgba(124, 58, 237, .2);
-}
-.vpn-copyall-text { flex: 1; min-width: 0; }
-.vpn-copyall-text h3 {
-  margin: 0; color: #fff; font-size: 19px; font-weight: 700; letter-spacing: -.02em;
-  font-family: 'Inter', system-ui, sans-serif;
-}
-.vpn-copyall-text p {
-  margin: 4px 0 0; color: #a9a7e6; font-size: 14px; line-height: 1.35;
-  font-family: 'Inter', system-ui, sans-serif;
-}
-.vpn-copyall-btn {
-  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-  min-width: 150px; padding: 13px 24px; border: 0; border-radius: 14px; cursor: pointer;
-  color: #fff; font-size: 15px; font-weight: 700; font-family: 'Inter', system-ui, sans-serif;
+/* Circular app icons: crisp ring so dark logos stay visible on the dark page */
+.vpn-app-icon { box-shadow: 0 8px 18px rgba(0,0,0,.4), 0 0 0 1.5px rgba(167,139,250,.28); }
+
+/* Copy button: glyph circle instead of an app logo */
+.vpn-app-icon.is-glyph {
   background: linear-gradient(135deg, #8b5cf6, #6d28d9);
-  box-shadow: 0 8px 22px rgba(109, 40, 217, .4);
-  transition: transform .15s ease, box-shadow .2s ease, filter .2s ease;
+  box-shadow: 0 0 22px rgba(124,58,237,.5), 0 0 0 1.5px rgba(196,181,253,.45);
 }
-.vpn-copyall-btn:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 12px 28px rgba(109, 40, 217, .55); }
-.vpn-copyall-btn:active { transform: translateY(0) scale(.98); }
-.vpn-copyall-btn:disabled { opacity: .7; cursor: progress; transform: none; }
-.vpn-copyall-btn:focus-visible { outline: 2px solid rgba(196, 181, 253, .9); outline-offset: 3px; }
+.vpn-app-icon.is-glyph svg { display: block; width: clamp(24px, 6.6vw, 28px); height: clamp(24px, 6.6vw, 28px); color: #fff; }
+.vpn-copy-btn:disabled { opacity: .7; cursor: progress; }
+.vpn-copy-btn:hover .vpn-app-icon { transform: scale(1.06); }
+.vpn-app-icon { transition: transform .16s ease; }
+
+/* 4 apps on mobile, Copy + 4 apps on PC */
+.vpn-import-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
 @media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
 
   .pc-only { display: flex; }
   .mobile-only { display: none !important; }
+
+  /* Import / Copy row: compact, left-aligned, bigger circles */
+  .vpn-import-panel { max-width: 760px; }
+  .vpn-import-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+  .vpn-app-icon { width: 72px; height: 72px; }
+  .vpn-app-name { font-size: 14px; }
+  .vpn-import-app { cursor: pointer; }
+  .vpn-import-app:hover .vpn-app-icon { transform: scale(1.06); }
+  .vpn-app-icon.is-glyph svg { width: 32px; height: 32px; }
 
   /* ── Full-width page shell: 12-column grid ── */
   #app-content > .container {
@@ -1540,7 +1527,7 @@ button.vpn-square-btn:hover { background:linear-gradient(145deg,rgba(96,48,185,.
     gap: 18px;
     align-items: start;
   }
-  #servers-container > .vpn-copyall-panel,
+  #servers-container > .vpn-import-panel,
   #servers-container > .vpn-section-label,
   #servers-container > p { grid-column: 1 / -1; }
   #servers-container > .vpn-section-label { margin: 8px 2px 0; }

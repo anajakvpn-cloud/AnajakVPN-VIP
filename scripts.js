@@ -1201,7 +1201,7 @@ async function copyAllConfigs(list, btn) {
     return;
   }
 
-  const label = btn?.querySelector('span');
+  const label = btn?.querySelector('.vpn-app-name') || btn?.querySelector('span');
   const original = label ? label.textContent : '';
   if (btn) btn.disabled = true;
   if (label) label.textContent = 'Copying...';
@@ -1502,8 +1502,6 @@ async function renderServerList(list) {
         (list.find(x => x.type === 'server')?.category) || '';
     const importApps = [
       { name: 'V2Box', image: 'icons/v2box.png', scheme: (u, n) => `v2box://install-sub?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` },
-      // Netmod has no documented import link, so this button copies the subscription URL to paste in Netmod.
-      { name: 'Netmod', image: 'icons/netmod.png', copyOnly: true },
       { name: 'V2rayTun', image: 'icons/v2raytun.png', scheme: u => `v2raytun://import/${u}` },
       { name: 'Happ', image: 'icons/happ.png', scheme: u => `happ://add/${u}` },
       { name: 'Nekobox', image: 'icons/nekobox.png', scheme: (u, n) => `sn://subscription?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` }
@@ -1514,22 +1512,15 @@ async function renderServerList(list) {
 
     // ── Mobile / touch devices: import into a VPN app ──
     const importPanel = document.createElement('section');
-    importPanel.className = 'vpn-import-panel mobile-only';
-    importPanel.innerHTML = `<div class="vpn-import-heading"><div class="vpn-import-mark"><i class="fas fa-link"></i></div><div><h3>Import Subscription</h3><p>Choose your VPN app to import</p></div><span class="vpn-import-chevron"><i class="fas fa-chevron-right"></i></span></div><div class="vpn-import-grid">${importApps.map((app,i) => `<button type="button" class="vpn-import-app${i === 0 ? ' is-primary' : ''}" data-app-index="${i}" aria-label="Import with ${app.name}"><span class="vpn-app-icon"><img src="${app.image}" alt="${app.name} app icon" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><i class="fas fa-shield-alt" style="display:none"></i></span><span class="vpn-app-name">${app.name}</span></button>`).join('')}</div>`;
-    importPanel.querySelectorAll('.vpn-import-app').forEach(btn => btn.addEventListener('click', () => {
+    importPanel.className = 'vpn-import-panel';
+    importPanel.innerHTML = `<div class="vpn-import-heading"><div class="vpn-import-mark"><i class="fas fa-link"></i></div><div><h3>Import Subscription</h3><p>Choose your VPN app to import</p></div><span class="vpn-import-chevron"><i class="fas fa-chevron-right"></i></span></div><div class="vpn-import-grid">${serverCount > 0 ? `<button type="button" class="vpn-import-app vpn-copy-btn pc-only" aria-label="Copy all configs"><span class="vpn-app-icon is-glyph"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2.5"></rect><path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5"></path></svg></span><span class="vpn-app-name">Copy</span></button>` : ''}${importApps.map((app,i) => `<button type="button" class="vpn-import-app${i === 0 ? ' is-primary' : ''}" data-app-index="${i}" aria-label="Import with ${app.name}"><span class="vpn-app-icon"><img src="${app.image}" alt="${app.name} app icon" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><i class="fas fa-shield-alt" style="display:none"></i></span><span class="vpn-app-name">${app.name}</span></button>`).join('')}</div>`;
+    const copyBtn = importPanel.querySelector('.vpn-copy-btn');
+    if (copyBtn) copyBtn.addEventListener('click', () => copyAllConfigs(list, copyBtn));
+    importPanel.querySelectorAll('.vpn-import-app[data-app-index]').forEach(btn => btn.addEventListener('click', () => {
       const app = importApps[Number(btn.dataset.appIndex)];
       const category = importCategory || (list.find(x => x.category)?.category) || '';
       const subscription = category ? buildSubscriptionUrl(category) : '';
       if (!subscription) { showToast('Subscription URL is unavailable for this category'); return; }
-
-      // Apps without an import link: copy the subscription URL for manual paste.
-      if (app.copyOnly) {
-        copyTextToClipboard(subscription).then(ok => {
-          if (ok) showToast(`Subscription URL copied — paste it into ${app.name}`);
-          else window.prompt('Copy subscription URL into ' + app.name, subscription);
-        });
-        return;
-      }
 
       // Use the app's URI scheme; if Android cannot resolve it, offer the subscription URL for manual import.
       const fallback = () => { try { navigator.clipboard.writeText(subscription).then(() => showToast(`${app.name} not opened — subscription URL copied`)).catch(() => { window.prompt('Copy subscription URL into ' + app.name, subscription); }); } catch (_) { window.prompt('Copy subscription URL into ' + app.name, subscription); } };
@@ -1539,16 +1530,6 @@ async function renderServerList(list) {
       window.location.href = app.scheme(subscription, subName);
     }));
     container.appendChild(importPanel);
-
-    // ── PC only: copy every config (vless://...) in this list ──
-    if (serverCount > 0) {
-      const copyPanel = document.createElement('section');
-      copyPanel.className = 'vpn-copyall-panel pc-only';
-      copyPanel.innerHTML = `<div class="vpn-copyall-icon"><i class="fas fa-copy"></i></div><div class="vpn-copyall-text"><h3>Copy All Config</h3><p>${serverCount} server${serverCount > 1 ? 's' : ''} &middot; vless:// links for v2rayN, Nekoray &amp; other PC clients</p></div><button type="button" class="vpn-copyall-btn" aria-label="Copy all configs"><i class="fas fa-copy"></i><span>Copy all</span></button>`;
-      const copyBtn = copyPanel.querySelector('.vpn-copyall-btn');
-      copyBtn.addEventListener('click', () => copyAllConfigs(list, copyBtn));
-      container.appendChild(copyPanel);
-    }
 
     // Category label + server count (shown on every device)
     if (catLabel) {
