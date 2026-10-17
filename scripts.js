@@ -1420,15 +1420,14 @@ async function renderServerList(list) {
         (list.find(x => x.type === 'server')?.category) || '';
     const importApps = [
       { name: 'V2Box', image: 'https://i.pinimg.com/474x/a5/0a/91/a50a91ce66f64a6c432b666caf120a32.jpg', scheme: u => `v2box://import?url=${encodeURIComponent(u)}` },
+      { name: 'V2rayGN', image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRZC6rUB7CvBEXeKGlrWZyhTu_gmTX2EV_v06_tU64GkQ&s=10', scheme: u => `v2rayng://install-config?url=${encodeURIComponent(u)}` },
+      { name: 'V2rayTun', image: 'https://downloadr2.apkmirror.com/wp-content/uploads/2025/08/91/689251c8d99d0_com.v2raytun.android.png', scheme: u => `v2raytun://import/${encodeURIComponent(u)}` },
       { name: 'Happ', image: 'https://downloadr2.apkmirror.com/wp-content/uploads/2026/09/su.happ_.proxyutility_Happ_512x512.png', scheme: u => `happ://add/${encodeURIComponent(u)}` },
-      { name: 'Proxy Utility', image: 'https://downloadr2.apkmirror.com/wp-content/uploads/2026/09/su.happ_.proxyutility_Happ_512x512.png', scheme: u => `proxyutility://import?url=${encodeURIComponent(u)}` },
-      { name: 'v2rayGN', image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRZC6rUB7CvBEXeKGlrWZyhTu_gmTX2EV_v06_tU64GkQ&s=10', scheme: u => `v2rayng://install-config?url=${encodeURIComponent(u)}` },
-      { name: 'NekoBox', image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT3jefDiCoIMC9tdnlPtNsWaSNCq3FbraK3kxK4DJ2kEg&s=10', scheme: u => `nekobox://import?url=${encodeURIComponent(u)}` },
-      { name: 'V2RayTun', image: 'https://downloadr2.apkmirror.com/wp-content/uploads/2025/08/91/689251c8d99d0_com.v2raytun.android.png', scheme: u => `v2raytun://import/${encodeURIComponent(u)}` }
+      { name: 'Nekobox', image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT3jefDiCoIMC9tdnlPtNsWaSNCq3FbraK3kxK4DJ2kEg&s=10', scheme: u => `nekobox://import?url=${encodeURIComponent(u)}` }
     ];
     const importPanel = document.createElement('section');
     importPanel.className = 'vpn-import-panel';
-    importPanel.innerHTML = `<div class="vpn-import-heading"><div class="vpn-import-mark"><i class="fas fa-link"></i></div><div><h3>Import Subscription</h3><p>Choose your VPN app to import</p></div></div><div class="vpn-import-grid">${importApps.map((app,i) => `<button type="button" class="vpn-import-app" data-app-index="${i}" aria-label="Import with ${app.name}"><span class="vpn-app-icon"><img src="${app.image}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><i class="fas fa-shield-alt" style="display:none"></i></span><span class="vpn-app-name">${app.name}</span><span class="vpn-app-action">Import</span></button>`).join('')}</div>`;
+    importPanel.innerHTML = `<div class="vpn-import-heading"><div class="vpn-import-mark"><i class="fas fa-link"></i></div><div><h3>Import Subscription</h3><p>Choose your VPN app to import</p></div><span class="vpn-import-chevron"><i class="fas fa-chevron-right"></i></span></div><div class="vpn-import-grid">${importApps.map((app,i) => `<button type="button" class="vpn-import-app" data-app-index="${i}" aria-label="Import with ${app.name}"><span class="vpn-app-icon"><img src="${app.image}" alt="${app.name} app icon" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><i class="fas fa-shield-alt" style="display:none"></i></span><span class="vpn-app-name">${app.name}</span></button>`).join('')}</div>`;
     importPanel.querySelectorAll('.vpn-import-app').forEach(btn => btn.addEventListener('click', () => {
       const app = importApps[Number(btn.dataset.appIndex)];
       const category = importCategory || (list.find(x => x.category)?.category) || '';
