@@ -1211,6 +1211,10 @@ async function resolveServerConfig(item) {
 // Copies every server config (vless://... etc.) in the current list, one per line,
 // with random-domain already replaced by the user's subdomain. Works on every device.
 async function copyAllConfigs(list, btn) {
+  if (!window.matchMedia('(min-width: 900px)').matches) {
+    showToast('Copy config is available on desktop only');
+    return;
+  }
   const servers = (list || []).filter(x => x && x.type !== 'app' && String(x.text || '').trim());
   if (!servers.length) {
     showToast('No server configs to copy');
@@ -1235,22 +1239,6 @@ async function copyAllConfigs(list, btn) {
     showToast('Copy failed');
   } finally {
     if (btn) btn.disabled = false;
-  }
-}
-
-// Copies a single server's config.
-async function copyServerConfig(item, btn) {
-  try {
-    const cfg = await resolveServerConfig(item);
-    if (cfg && await copyTextToClipboard(cfg)) {
-      showToast('បានចម្លង config រួចរាល់');
-      if (btn) { btn.classList.add('is-copied'); setTimeout(() => btn.classList.remove('is-copied'), 1500); }
-    } else {
-      showToast('ចម្លងមិនបាន');
-    }
-  } catch (e) {
-    console.error('copyServerConfig failed:', e);
-    showToast('ចម្លងមិនបាន');
   }
 }
 
@@ -1529,10 +1517,7 @@ async function renderServerList(list) {
       { name: 'V2Box',    icon: 'icons/v2box.png',    scheme: (u, n) => `v2box://install-sub?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` },
       { name: 'V2rayTun', icon: 'icons/v2raytun.png', scheme: u => `v2raytun://import/${u}` },
       { name: 'Happ',     icon: 'icons/happ.png',     scheme: u => `happ://add/${u}` },
-      { name: 'Nekobox',  icon: 'icons/nekobox.png',  scheme: (u, n) => `sn://subscription?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` },
-      { name: 'V2rayNG',  icon: 'icons/v2rayng.png',  scheme: (u, n) => `v2rayng://install-sub?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` },
-      { name: 'Hiddify',  mono: 'H', tone: 'tone-hiddify',   scheme: (u, n) => `hiddify://import/${u}#${encodeURIComponent(n)}` },
-      { name: 'Streisand', mono: 'S', tone: 'tone-streisand', scheme: u => `streisand://import/${u}` }
+      { name: 'Nekobox',  icon: 'icons/nekobox.png',  scheme: (u, n) => `sn://subscription?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` }
     ];
 
     const catLabel = (document.getElementById('server-category-title')?.textContent || '').trim();
@@ -1542,15 +1527,11 @@ async function renderServerList(list) {
 
     const copyGlyph = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2.5"></rect><path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5"></path></svg>';
     const checkGlyph = '<svg class="glyph-check" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>';
-    const linkGlyph = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"></path><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"></path></svg>';
 
-    const copyTiles = [];
-    if (copyableCount > 0) {
-      copyTiles.push(`<button type="button" class="vpn-import-app vpn-copy-btn is-primary" data-copy="configs" aria-label="Copy all VLESS configs"><span class="vpn-app-icon is-glyph tone-copy">${copyGlyph}${checkGlyph}</span><span class="vpn-app-name">Copy VLESS</span><span class="vpn-app-hint">${copyableCount} server${copyableCount > 1 ? 's' : ''}</span></button>`);
-    }
-    if (subCategory) {
-      copyTiles.push(`<button type="button" class="vpn-import-app vpn-copy-btn" data-copy="sub" aria-label="Copy subscription URL"><span class="vpn-app-icon is-glyph tone-link">${linkGlyph}${checkGlyph}</span><span class="vpn-app-name">Copy Sub URL</span><span class="vpn-app-hint">Subscription</span></button>`);
-    }
+    // Copy VLESS: desktop-width screens only (hidden by CSS below 900px, guarded again in copyAllConfigs).
+    const copyTile = copyableCount > 0
+      ? `<button type="button" class="vpn-import-app vpn-copy-btn pc-only" data-copy="configs" aria-label="Copy all VLESS configs"><span class="vpn-app-icon is-glyph tone-copy">${copyGlyph}${checkGlyph}</span><span class="vpn-app-name">Copy VLESS</span><span class="vpn-app-hint">${copyableCount} server${copyableCount > 1 ? 's' : ''}</span></button>`
+      : '';
 
     const appTiles = importApps.map((app, i) => {
       const visual = app.icon
@@ -1567,17 +1548,9 @@ async function renderServerList(list) {
         <div><h3>Import Subscription</h3><p>Copy configs or open your VPN app</p></div>
         <span class="vpn-import-chevron"><i class="fas fa-chevron-right"></i></span>
       </div>
-      ${copyTiles.length ? `<div class="vpn-import-group"><div class="vpn-group-label"><i class="fas fa-copy"></i>Copy config</div><div class="vpn-import-grid">${copyTiles.join('')}</div></div>` : ''}
-      ${subCategory ? `<div class="vpn-import-group"><div class="vpn-group-label"><i class="fas fa-mobile-screen"></i>Open in app</div><div class="vpn-import-grid">${appTiles}</div></div>` : ''}`;
+      ${subCategory ? `<div class="vpn-import-group"><div class="vpn-group-label"><i class="fas fa-mobile-screen"></i>Open in app</div><div class="vpn-import-grid">${copyTile}${appTiles}</div></div>` : ''}`;
 
     importPanel.querySelector('[data-copy="configs"]')?.addEventListener('click', e => copyAllConfigs(list, e.currentTarget));
-    importPanel.querySelector('[data-copy="sub"]')?.addEventListener('click', async e => {
-      const btn = e.currentTarget;
-      const url = buildSubscriptionUrl(subCategory);
-      if (!url) { showToast('មិនមាន Subscription URL'); return; }
-      if (await copyTextToClipboard(url)) { showToast('បានចម្លង Subscription URL'); flashCopied(btn); }
-      else showToast('ចម្លងមិនបាន');
-    });
     importPanel.querySelectorAll('.vpn-import-app[data-app-index]').forEach(btn => btn.addEventListener('click', () => {
       const app = importApps[Number(btn.dataset.appIndex)];
       const subscription = subCategory ? buildSubscriptionUrl(subCategory) : '';
@@ -1709,12 +1682,9 @@ async function renderServerList(list) {
 
                     <div class="server-actions">    
                         <span class="ping-result text-xs font-semibold text-emerald-400" data-ip="${serverIP || ''}">...</span>
-                        ${String(item.text || '').trim() ? `<button type="button" class="server-copy-btn" aria-label="Copy VLESS config" title="Copy config"><i class="fas fa-copy"></i><i class="fas fa-check"></i></button>` : ''}
                     </div>    
                 </div>    
             `;    
-
-            div.querySelector('.server-copy-btn')?.addEventListener('click', e => copyServerConfig(item, e.currentTarget));
 
             if (serverIP) {    
                 const pingElement = div.querySelector('.ping-result');    

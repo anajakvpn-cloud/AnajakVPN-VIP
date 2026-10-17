@@ -1490,6 +1490,10 @@ button.vpn-square-btn:hover { background:linear-gradient(145deg,rgba(96,48,185,.
 .server-copy-btn.is-copied i.fa-copy { opacity: 0; transform: scale(.4); }
 .server-copy-btn.is-copied i.fa-check { opacity: 1; transform: scale(1); }
 
+/* Desktop-only items (Copy VLESS) */
+.pc-only { display: none !important; }
+@media (min-width: 900px) { .pc-only { display: flex !important; } }
+
 /* Sidebar-only chrome is hidden on phones/tablets */
 #bottom-nav .nav-brand,
 #bottom-nav .nav-section-label,
@@ -1498,11 +1502,11 @@ button.vpn-square-btn:hover { background:linear-gradient(145deg,rgba(96,48,185,.
 
 
 /* ═══════════════════════════════════════════════════════════════
-   DESKTOP LAYOUT  (width ≥ 1024px – no pointer sniffing, so touch
+   DESKTOP LAYOUT  (width ≥ 900px, which also covers Chrome's "Desktop site" mode on phones (≈980px) – no pointer sniffing, so touch
    laptops, "desktop site" mode and iPad landscape get it too)
    Sidebar · 12-col dashboard · card grids · centred dialogs
    ═══════════════════════════════════════════════════════════════ */
-@media (min-width: 1024px) {
+@media (min-width: 900px) {
   :root { --sidebar-w: 264px; }
 
   body { padding-bottom: 0 !important; }
@@ -1599,7 +1603,7 @@ button.vpn-square-btn:hover { background:linear-gradient(145deg,rgba(96,48,185,.
   #search-wrap > i.fa-search { left: 18px; font-size: 15px; }
 
   /* ── Main menu: card grid ── */
-  #main-menu:not(.hidden) { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 18px; }
+  #main-menu:not(.hidden) { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
   #main-menu > * { margin-top: 0 !important; }
   #main-menu .card-item { padding: 20px 24px; border-radius: 20px; }
   #main-menu .card-item h2 { font-size: 17px; }
@@ -1612,7 +1616,7 @@ button.vpn-square-btn:hover { background:linear-gradient(145deg,rgba(96,48,185,.
   #server-list-view .vpn-page-sub { font-size: 15px; }
 
   #servers-container {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 18px; align-items: start;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; align-items: start;
   }
   #servers-container > .vpn-import-panel,
   #servers-container > .vpn-section-label,
@@ -1671,7 +1675,11 @@ button.vpn-square-btn:hover { background:linear-gradient(145deg,rgba(96,48,185,.
   #image-modal { padding-left: var(--sidebar-w); }
 }
 
-@media (min-width: 1024px) and (max-width: 1279px) {
+@media (min-width: 900px) and (max-width: 1099px) {
+  :root { --sidebar-w: 224px; }
+  #app-content > .container { padding-left: 24px; padding-right: 24px; }
+}
+@media (min-width: 900px) and (max-width: 1279px) {
   #app-content > .container > .premium-card,
   #app-content > .container > .expiry-card { grid-column: 1 / -1; }
 }
