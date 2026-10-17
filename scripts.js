@@ -1421,12 +1421,13 @@ async function renderServerList(list) {
     const importCategory = (list.find(x => x.type === 'server' && x.category)?.category) ||
         (list.find(x => x.type === 'server')?.category) || '';
     const importApps = [
-      { name: 'V2Box', image: 'icons/apps/v2box.svg', scheme: u => `v2box://import?url=${encodeURIComponent(u)}` },
-      { name: 'V2rayGN', image: 'icons/apps/v2rayng.svg', scheme: u => `v2rayng://install-config?url=${encodeURIComponent(u)}` },
-      { name: 'V2rayTun', image: 'icons/apps/v2raytun.svg', scheme: u => `v2raytun://import/${encodeURIComponent(u)}` },
-      { name: 'Happ', image: 'icons/apps/happ.svg', scheme: u => `happ://add/${encodeURIComponent(u)}` },
-      { name: 'Nekobox', image: 'icons/apps/nekobox.svg', scheme: u => `nekobox://import?url=${encodeURIComponent(u)}` }
+      { name: 'V2Box', image: 'icons/v2box/icon-512.png', scheme: (u, n) => `v2box://install-sub?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` },
+      { name: 'V2rayGN', image: 'icons/v2rayng/icon-512.png', scheme: (u, n) => `v2rayng://install-sub?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` },
+      { name: 'V2rayTun', image: 'icons/v2raytun/icon-512.png', scheme: u => `v2raytun://import/${u}` },
+      { name: 'Happ', image: 'icons/happ/icon-512.png', scheme: u => `happ://add/${u}` },
+      { name: 'Nekobox', image: 'icons/nekobox/icon-512.png', scheme: (u, n) => `sn://subscription?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` }
     ];
+
     const importPanel = document.createElement('section');
     importPanel.className = 'vpn-import-panel';
     const catLabel = (document.getElementById('server-category-title')?.textContent || '').trim();
@@ -1441,7 +1442,8 @@ async function renderServerList(list) {
       const fallback = () => { try { navigator.clipboard.writeText(subscription).then(() => showToast(`${app.name} not opened — subscription URL copied`)).catch(() => { window.prompt('Copy subscription URL into ' + app.name, subscription); }); } catch (_) { window.prompt('Copy subscription URL into ' + app.name, subscription); } };
       let timer = setTimeout(fallback, 1200);
       document.addEventListener('visibilitychange', function onVisible() { if (document.hidden) { clearTimeout(timer); document.removeEventListener('visibilitychange', onVisible); } });
-      window.location.href = app.scheme(subscription);
+      const subName = categoryTitles[category] || category || 'AnajakVPN';
+      window.location.href = app.scheme(subscription, subName);
     }));
     container.appendChild(importPanel);
 
