@@ -1035,10 +1035,7 @@ function backToMain() {
     scrollToTop();    
 }    
 
-let activeSubscriptionCategory = null;
-
 function showServers(category) {    
-    activeSubscriptionCategory = category;
     const list = allServers.filter(s => s.category === category);    
     document.getElementById('main-menu').classList.add('hidden');    
     document.getElementById('server-list-view').classList.remove('hidden');    
@@ -1152,32 +1149,6 @@ async function copySubscriptionUrl(categoryKey) {
     console.error(e);
     showToast('ចម្លងមិនបាន');
   }
-}
-
-
-// Open the user's category subscription directly in a supported VPN client.
-function openSubscriptionInApp(appKey, categoryKey) {
-  if (!categoryKey) { showToast('Please open a server category first'); return; }
-  const url = buildSubscriptionUrl(categoryKey);
-  if (!url) { showToast('Please sign in to import your subscription'); return; }
-  const encoded = encodeURIComponent(url);
-  const links = {
-    v2box: `v2box://import?url=${encoded}`,
-    happ: `happ://add/${encoded}`,
-    proxyutility: `proxyutility://import?url=${encoded}`,
-    v2rayng: `v2rayng://install-config?url=${encoded}`,
-    nekobox: `nekobox://import?url=${encoded}`,
-    v2raytun: `v2raytun://import?url=${encoded}`
-  };
-  const target = links[appKey];
-  if (!target) return;
-  // Android intent links give Android a chance to resolve the installed app.
-  if (/Android/i.test(navigator.userAgent)) {
-    const packageNames = {v2rayng:'com.v2ray.ang', nekobox:'moe.nb4a', v2box:'dev.hexasoftware.v2box', happ:'com.happproxy', v2raytun:'com.v2raytun', proxyutility:'com.proxyutility'};
-    const schemeTarget = target.replace(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//, '');
-    const scheme = target.split(':')[0];
-    window.location.href = `intent://${schemeTarget}#Intent;scheme=${scheme};package=${packageNames[appKey] || ''};end`;
-  } else { window.location.href = target; }
 }
 
 // ================== RENDER MAIN MENU ==================
@@ -1444,6 +1415,33 @@ async function renderServerList(list) {
 
     container.innerHTML = '';    
 
+    // One shared, clean subscription-import panel above the server cards.
+    const importCategory = (list.find(x => x.type === 'server' && x.category)?.category) ||
+        (list.find(x => x.type === 'server')?.category) || '';
+    const importApps = [
+      { name: 'V2Box', image: 'https://i.pinimg.com/474x/a5/0a/91/a50a91ce66f64a6c432b666caf120a32.jpg', scheme: u => `v2box://import?url=${encodeURIComponent(u)}` },
+      { name: 'Happ', image: 'https://downloadr2.apkmirror.com/wp-content/uploads/2026/09/su.happ_.proxyutility_Happ_512x512.png', scheme: u => `happ://add/${encodeURIComponent(u)}` },
+      { name: 'Proxy Utility', image: 'https://downloadr2.apkmirror.com/wp-content/uploads/2026/09/su.happ_.proxyutility_Happ_512x512.png', scheme: u => `proxyutility://import?url=${encodeURIComponent(u)}` },
+      { name: 'v2rayGN', image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRZC6rUB7CvBEXeKGlrWZyhTu_gmTX2EV_v06_tU64GkQ&s=10', scheme: u => `v2rayng://install-config?url=${encodeURIComponent(u)}` },
+      { name: 'NekoBox', image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT3jefDiCoIMC9tdnlPtNsWaSNCq3FbraK3kxK4DJ2kEg&s=10', scheme: u => `nekobox://import?url=${encodeURIComponent(u)}` },
+      { name: 'V2RayTun', image: 'https://downloadr2.apkmirror.com/wp-content/uploads/2025/08/91/689251c8d99d0_com.v2raytun.android.png', scheme: u => `v2raytun://import/${encodeURIComponent(u)}` }
+    ];
+    const importPanel = document.createElement('section');
+    importPanel.className = 'vpn-import-panel';
+    importPanel.innerHTML = `<div class="vpn-import-heading"><div class="vpn-import-mark"><i class="fas fa-link"></i></div><div><h3>Import Subscription</h3><p>Choose your VPN app to import</p></div></div><div class="vpn-import-grid">${importApps.map((app,i) => `<button type="button" class="vpn-import-app" data-app-index="${i}" aria-label="Import with ${app.name}"><span class="vpn-app-icon"><img src="${app.image}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><i class="fas fa-shield-alt" style="display:none"></i></span><span class="vpn-app-name">${app.name}</span><span class="vpn-app-action">Import</span></button>`).join('')}</div>`;
+    importPanel.querySelectorAll('.vpn-import-app').forEach(btn => btn.addEventListener('click', () => {
+      const app = importApps[Number(btn.dataset.appIndex)];
+      const category = importCategory || (list.find(x => x.category)?.category) || '';
+      const subscription = category ? buildSubscriptionUrl(category) : '';
+      if (!subscription) { showToast('Subscription URL is unavailable for this category'); return; }
+      // Use the app's URI scheme; if Android cannot resolve it, offer the subscription URL for manual import.
+      const fallback = () => { try { navigator.clipboard.writeText(subscription).then(() => showToast(`${app.name} not opened — subscription URL copied`)).catch(() => { window.prompt('Copy subscription URL into ' + app.name, subscription); }); } catch (_) { window.prompt('Copy subscription URL into ' + app.name, subscription); } };
+      let timer = setTimeout(fallback, 1200);
+      document.addEventListener('visibilitychange', function onVisible() { if (document.hidden) { clearTimeout(timer); document.removeEventListener('visibilitychange', onVisible); } });
+      window.location.href = app.scheme(subscription);
+    }));
+    container.appendChild(importPanel);
+
     if (list.length === 0) {    
         container.innerHTML = '<p class="text-center text-gray-500 py-8">មិនមាន server ឬកម្មវិធី</p>';    
         return;    
@@ -1519,6 +1517,8 @@ async function renderServerList(list) {
         } else {    
             let configText = await replacePlaceholdersInConfig(item.text || '', item);    
 
+            const shortText = ''; // Never expose raw VLESS/config strings on server cards.
+
             const serverIP = item.ip || null;    
 
             const scrollingTitle = item.title.length > 20 ? `    
@@ -1543,14 +1543,14 @@ async function renderServerList(list) {
                                   <span style="width:6px;height:6px;border-radius:50%;background:#a78bfa;display:inline-block;flex-shrink:0;"></span>
                                   ${scrollingTitle}
                                 </div>
-                                <p class="text-xs text-gray-500">Choose a server below · import options are above</p>
+                                <p class="text-xs text-gray-500">Secure VPN server</p>    
                             </div>    
                         </div>    
                     </div>    
 
-                    <div class="server-actions server-app-actions">
+                    <div class="server-actions">    
                         <span class="ping-result text-xs font-semibold text-emerald-400" data-ip="${serverIP || ''}">...</span>
-                    </div>
+</div>    
                 </div>    
             `;    
 
@@ -1587,7 +1587,6 @@ document.getElementById('search-input')?.addEventListener('input', e => {
         s.title.toLowerCase().includes(query) ||     
         (s.text && s.text.toLowerCase().includes(query))    
     );    
-    activeSubscriptionCategory = results.length && results.every(s => s.category === results[0].category) ? results[0].category : null;
 
     renderServerList(results);    
     hideMainHeaderElements();    
