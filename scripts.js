@@ -1421,11 +1421,11 @@ async function renderServerList(list) {
     const importCategory = (list.find(x => x.type === 'server' && x.category)?.category) ||
         (list.find(x => x.type === 'server')?.category) || '';
     const importApps = [
-      { name: 'V2Box', image: 'icons/v2box/icon-512.png', scheme: (u, n) => `v2box://install-sub?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` },
-      { name: 'V2rayGN', image: 'icons/v2rayng/icon-512.png', scheme: (u, n) => `v2rayng://install-sub?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` },
-      { name: 'V2rayTun', image: 'icons/v2raytun/icon-512.png', scheme: u => `v2raytun://import/${u}` },
-      { name: 'Happ', image: 'icons/happ/icon-512.png', scheme: u => `happ://add/${u}` },
-      { name: 'Nekobox', image: 'icons/nekobox/icon-512.png', scheme: (u, n) => `sn://subscription?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` }
+      { name: 'V2Box', image: 'icons/v2box.png', scheme: (u, n) => `v2box://install-sub?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` },
+      { name: 'V2rayGN', image: 'icons/v2rayng.png', scheme: (u, n) => `v2rayng://install-sub?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` },
+      { name: 'V2rayTun', image: 'icons/v2raytun.png', scheme: u => `v2raytun://import/${u}` },
+      { name: 'Happ', image: 'icons/happ.png', scheme: u => `happ://add/${u}` },
+      { name: 'Nekobox', image: 'icons/nekobox.png', scheme: (u, n) => `sn://subscription?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` }
     ];
 
     const importPanel = document.createElement('section');
