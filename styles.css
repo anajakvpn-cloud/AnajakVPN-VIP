@@ -1443,115 +1443,239 @@ button.vpn-square-btn:hover { background:linear-gradient(145deg,rgba(96,48,185,.
 
 
 /* ═══════════════════════════════════════════════════════════════
-   PC / DESKTOP LAYOUT  (wide screen + mouse only; phones & tablets
-   keep the mobile layout above)
+   IMPORT PANEL – copy + open-in-app tiles (all devices)
    ═══════════════════════════════════════════════════════════════ */
-
-/* PC-only items (the Copy button) – hidden everywhere except PC */
-.pc-only { display: none; }
-
-/* Circular app icons: crisp ring so dark logos stay visible on the dark page */
-.vpn-app-icon { box-shadow: 0 8px 18px rgba(0,0,0,.4), 0 0 0 1.5px rgba(167,139,250,.28); }
-
-/* Copy button: glyph circle instead of an app logo */
-.vpn-app-icon.is-glyph {
-  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
-  box-shadow: 0 0 22px rgba(124,58,237,.5), 0 0 0 1.5px rgba(196,181,253,.45);
+.vpn-import-group { margin: 0 0 22px; }
+.vpn-group-label {
+  display: flex; align-items: center; gap: 8px; margin: 0 2px 12px;
+  font: 700 11px/1 'Inter', system-ui, sans-serif; letter-spacing: .09em; text-transform: uppercase; color: #8e8bd0;
 }
-.vpn-app-icon.is-glyph svg { display: block; width: clamp(24px, 6.6vw, 28px); height: clamp(24px, 6.6vw, 28px); color: #fff; }
-.vpn-copy-btn:disabled { opacity: .7; cursor: progress; }
-.vpn-copy-btn:hover .vpn-app-icon { transform: scale(1.06); }
-.vpn-app-icon { transition: transform .16s ease; }
+.vpn-group-label i { font-size: 12px; color: #a78bfa; }
+.vpn-import-heading { margin-bottom: 22px; }
 
-/* 4 apps on mobile, Copy + 4 apps on PC */
-.vpn-import-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.vpn-import-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 6px; }
+.vpn-import-app { gap: 8px; }
+.vpn-app-hint { display: none; }
 
-@media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+.vpn-app-icon { box-shadow: 0 8px 18px rgba(0,0,0,.4), 0 0 0 1.5px rgba(167,139,250,.28); transition: transform .16s ease, box-shadow .2s ease, background .2s ease; }
+.vpn-import-app:hover .vpn-app-icon { transform: translateY(-2px) scale(1.05); }
+.vpn-import-app:disabled { opacity: .7; cursor: progress; }
 
-  .pc-only { display: flex; }
-  .mobile-only { display: none !important; }
+/* glyph tiles (copy) */
+.vpn-app-icon.is-glyph { color: #fff; border-radius: 50%; }
+.vpn-app-icon.is-glyph svg { display: block; width: clamp(24px, 6.6vw, 28px); height: clamp(24px, 6.6vw, 28px); }
+.vpn-app-icon.is-glyph .glyph-check { position: absolute; opacity: 0; transform: scale(.5); transition: opacity .2s, transform .2s; }
+.vpn-app-icon.is-glyph > svg:first-child { transition: opacity .2s, transform .2s; }
+.tone-copy { background: linear-gradient(135deg, #8b5cf6, #6d28d9); box-shadow: 0 0 22px rgba(124,58,237,.5), 0 0 0 1.5px rgba(196,181,253,.45) !important; }
+.tone-link { background: linear-gradient(135deg, #38bdf8, #6366f1); box-shadow: 0 0 20px rgba(56,189,248,.28), 0 0 0 1.5px rgba(186,230,253,.4) !important; }
+.vpn-import-app.is-copied .vpn-app-icon.is-glyph { background: linear-gradient(135deg, #34d399, #059669); box-shadow: 0 0 22px rgba(52,211,153,.45), 0 0 0 1.5px rgba(167,243,208,.5) !important; }
+.vpn-import-app.is-copied .vpn-app-icon.is-glyph > svg:first-child { opacity: 0; transform: scale(.5); }
+.vpn-import-app.is-copied .vpn-app-icon.is-glyph .glyph-check { opacity: 1; transform: scale(1); }
 
-  /* Import / Copy row: compact, left-aligned, bigger circles */
-  .vpn-import-panel { max-width: 760px; }
-  .vpn-import-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
-  .vpn-app-icon { width: 72px; height: 72px; }
-  .vpn-app-name { font-size: 14px; }
-  .vpn-import-app { cursor: pointer; }
-  .vpn-import-app:hover .vpn-app-icon { transform: scale(1.06); }
-  .vpn-app-icon.is-glyph svg { width: 32px; height: 32px; }
+/* monogram tiles (apps without a bundled logo) */
+.vpn-mono { font: 800 24px/1 'Inter', system-ui, sans-serif; color: #fff; letter-spacing: -.02em; }
+.tone-hiddify { background: linear-gradient(135deg, #2dd4bf, #0d9488); }
+.tone-streisand { background: linear-gradient(135deg, #fb923c, #e11d48); }
 
-  /* ── Full-width page shell: 12-column grid ── */
+/* per-server copy button */
+.server-actions .server-copy-btn {
+  position: relative; width: 36px; height: 36px; padding: 0 !important; display: grid; place-items: center;
+  border-radius: 11px !important; font-size: 13px !important; color: #c4b5fd; cursor: pointer;
+  background: rgba(139,92,246,.14) !important; border: 1px solid rgba(139,92,246,.3) !important; box-shadow: none !important;
+}
+.server-actions .server-copy-btn:hover { background: rgba(139,92,246,.28) !important; color: #fff; }
+.server-copy-btn i { grid-area: 1 / 1; transition: opacity .18s, transform .18s; }
+.server-copy-btn i.fa-check { opacity: 0; transform: scale(.4); color: #34d399; }
+.server-actions .server-copy-btn.is-copied { background: rgba(52,211,153,.16) !important; border-color: rgba(52,211,153,.45) !important; }
+.server-copy-btn.is-copied i.fa-copy { opacity: 0; transform: scale(.4); }
+.server-copy-btn.is-copied i.fa-check { opacity: 1; transform: scale(1); }
+
+/* Sidebar-only chrome is hidden on phones/tablets */
+#bottom-nav .nav-brand,
+#bottom-nav .nav-section-label,
+#bottom-nav .nav-user,
+#bottom-nav .nav-extra { display: none; }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   DESKTOP LAYOUT  (width ≥ 1024px – no pointer sniffing, so touch
+   laptops, "desktop site" mode and iPad landscape get it too)
+   Sidebar · 12-col dashboard · card grids · centred dialogs
+   ═══════════════════════════════════════════════════════════════ */
+@media (min-width: 1024px) {
+  :root { --sidebar-w: 264px; }
+
+  body { padding-bottom: 0 !important; }
+
+  /* ── Sidebar (the former bottom nav) ── */
+  #bottom-nav:not(.hidden) {
+    display: flex; flex-direction: column;
+    top: 0; left: 0; right: auto; bottom: 0;
+    width: var(--sidebar-w); max-width: none; transform: none;
+    padding: 26px 16px 18px;
+    border-radius: 0; border: 0 !important; border-right: 1px solid rgba(139,92,246,.14) !important;
+    background: linear-gradient(180deg, rgba(18,15,34,.97) 0%, rgba(11,10,20,.98) 100%) !important;
+    box-shadow: 8px 0 40px rgba(0,0,0,.28);
+  }
+  #bottom-nav .nav-brand { display: flex; align-items: center; gap: 12px; padding: 4px 10px 26px; }
+  #bottom-nav .nav-brand img { width: 40px; height: 40px; border-radius: 12px; box-shadow: 0 0 18px rgba(124,58,237,.45); }
+  #bottom-nav .nav-brand-name { margin: 0; font: 800 18px/1.1 'Inter', system-ui, sans-serif; letter-spacing: -.02em; color: #fff; }
+  #bottom-nav .nav-brand-sub { margin: 3px 0 0; font: 500 12px/1.2 'Inter', system-ui, sans-serif; color: #8e8bd0; }
+
+  #bottom-nav .nav-section-label {
+    display: block; margin: 0 0 8px; padding: 0 12px;
+    font: 700 10.5px/1 'Inter', system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #5f5b78;
+  }
+  #bottom-nav .nav-section-label.nav-extra { margin-top: 22px; }
+
+  #bottom-nav .nav-items {
+    display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
+    gap: 4px; max-width: none; margin: 0; width: 100%; flex: 1;
+  }
+  #bottom-nav .nav-items > button,
+  #bottom-nav .nav-items > button.nav-extra {
+    display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 14px;
+    width: 100%; padding: 12px 14px; border-radius: 14px; color: #9794b0; cursor: pointer;
+    transform: none; border: 1px solid transparent;
+  }
+  #bottom-nav .nav-items > button i { font-size: 17px; width: 22px; margin: 0; text-align: center; filter: none; }
+  #bottom-nav .nav-items > button span { font: 600 14.5px/1 'Inter','Noto Sans Khmer', system-ui, sans-serif; margin: 0; }
+  #bottom-nav .nav-items > button:hover { background: rgba(139,92,246,.09); color: #e5e1ff; transform: none; }
+  #bottom-nav .nav-items > button.active {
+    color: #fff; transform: none;
+    background: linear-gradient(135deg, rgba(124,58,237,.34), rgba(76,38,150,.18));
+    border-color: rgba(139,92,246,.35); box-shadow: 0 6px 20px rgba(76,29,149,.22);
+  }
+  #bottom-nav .nav-items > button.active i { color: #c4b5fd; filter: drop-shadow(0 0 8px rgba(167,139,250,.55)); }
+  #bottom-nav .nav-items > button.active::after { display: none; }
+  #bottom-nav .nav-items > button.active::before {
+    content: ''; position: absolute; left: -16px; top: 50%; width: 4px; height: 22px; transform: translateY(-50%);
+    border-radius: 0 4px 4px 0; background: linear-gradient(180deg, #a78bfa, #7c3aed);
+  }
+  #bottom-nav .nav-items > button.nav-extra { display: flex; }
+
+  #bottom-nav .nav-user {
+    display: flex; align-items: center; gap: 12px; margin-top: 14px; padding: 12px;
+    border-radius: 16px; background: rgba(139,92,246,.08); border: 1px solid rgba(139,92,246,.16);
+  }
+  #bottom-nav .nav-user-avatar {
+    width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; flex: 0 0 38px;
+    background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: #fff; font-size: 15px;
+  }
+  #bottom-nav .nav-user-code { margin: 0; font: 700 14px/1.2 'Inter', system-ui, sans-serif; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #bottom-nav .nav-user-plan { margin: 2px 0 0; font: 500 11.5px/1.2 'Inter', system-ui, sans-serif; color: #a78bfa; }
+
+  /* ── Page shell ── */
+  #app-content { margin-left: var(--sidebar-w); }
   #app-content > .container {
-    max-width: 1680px;
-    width: 100%;
-    padding: 32px clamp(32px, 4vw, 72px) 130px;
-    display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    column-gap: 24px;
-    row-gap: 22px;
-    align-items: stretch;
+    max-width: 1440px; width: 100%; margin: 0 auto;
+    padding: 36px clamp(32px, 3.6vw, 64px) 64px;
+    display: grid; grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: 24px; row-gap: 24px; align-items: stretch;
   }
   #app-content > .container > * { grid-column: 1 / -1; margin-bottom: 0; }
 
-  /* Dashboard top row: user card | expiry | search */
-  #app-content > .container > .premium-card,
-  #app-content > .container > .expiry-card,
-  #app-content > .container > #search-wrap { grid-column: span 4; }
+  /* Header strip */
+  #top-app-header { padding-bottom: 4px; }
+  #top-app-header > div:first-child > button { width: 46px; height: 46px; border-radius: 14px; }
+  #top-app-header p.text-\[15px\] { font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+  #top-app-header p.text-\[11px\] { font-size: 13px; }
+  #top-app-header #logout-btn { font-size: 14px; padding: 9px 18px; }
 
-  #top-app-header #logout-btn { font-size: 14px; }
-  #top-app-header p.text-\[15px\] { font-size: 20px; }
+  /* Dashboard row: user card | expiry, then full-width search */
+  #app-content > .container > .premium-card { grid-column: span 5; }
+  #app-content > .container > .expiry-card { grid-column: span 7; }
+  #app-content > .container > #search-wrap { grid-column: 1 / -1; }
 
-  .premium-card { padding: 24px 26px; }
-  .premium-card #user-code-display { font-size: 28px; }
-  .expiry-card { padding: 20px 24px !important; }
+  .premium-card { padding: 28px 32px; display: flex; flex-direction: column; justify-content: center; }
+  .premium-card #user-code-display { font-size: 30px; letter-spacing: .02em; }
+  .expiry-card { padding: 24px 32px !important; display: flex; align-items: center; }
+  .expiry-card > div { width: 100%; gap: 28px !important; }
+  .expiry-card #expiry-display { font-size: 20px; }
+  .expiry-card #expiry-days-left { font-size: 14px; }
 
-  #search-wrap:not(.hidden) { display: flex; align-items: stretch; }
-  #search-wrap input { height: 100%; min-height: 64px; font-size: 16px; border-radius: 18px; }
+  #search-wrap:not(.hidden) { display: block; }
+  #search-wrap input { height: 56px; font-size: 15.5px; border-radius: 16px !important; padding-left: 48px; }
+  #search-wrap > i.fa-search { left: 18px; font-size: 15px; }
 
-  /* ── Main menu: responsive card grid ── */
-  #main-menu:not(.hidden) {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-    gap: 18px;
-  }
+  /* ── Main menu: card grid ── */
+  #main-menu:not(.hidden) { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 18px; }
   #main-menu > * { margin-top: 0 !important; }
-  #main-menu .card-item { padding: 20px 24px; }
+  #main-menu .card-item { padding: 20px 24px; border-radius: 20px; }
   #main-menu .card-item h2 { font-size: 17px; }
+  #main-menu .card-item .menu-icon-wrap { width: 58px; height: 58px; border-radius: 16px; }
 
-  /* ── Server list: import / copy card on top, servers in a grid ── */
-  #server-list-view .vpn-topbar { margin-bottom: 26px; }
-  #server-list-view .vpn-page-title { font-size: 28px; }
+  /* ── Server list ── */
+  #server-list-view .vpn-topbar { display: none; }
+  #server-list-view .vpn-pagehead { margin-bottom: 22px; }
+  #server-list-view .vpn-page-title { font-size: 30px; }
+  #server-list-view .vpn-page-sub { font-size: 15px; }
+
   #servers-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-    gap: 18px;
-    align-items: start;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 18px; align-items: start;
   }
   #servers-container > .vpn-import-panel,
   #servers-container > .vpn-section-label,
   #servers-container > p { grid-column: 1 / -1; }
-  #servers-container > .vpn-section-label { margin: 8px 2px 0; }
-  #servers-container > .card-bg { margin-bottom: 0; }
-  #refresh-servers-btn { max-width: 420px; margin-left: auto; margin-right: auto; margin-top: 26px; }
+  #servers-container > .vpn-section-label { margin: 10px 2px 0; }
+  #servers-container > .vpn-section-label span { font-size: 17px; }
+  #servers-container > .card-bg { margin-bottom: 0; padding: 18px 20px; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+  #servers-container > .card-bg:hover { transform: translateY(-2px); border-color: rgba(139,92,246,.4); box-shadow: 0 12px 30px rgba(0,0,0,.35); }
+
+  /* Import panel becomes one wide card: heading, then each group on its own row */
+  .vpn-import-panel {
+    margin: 0; padding: 26px 30px 8px; border-radius: 24px;
+    background: linear-gradient(145deg, rgba(30,24,68,.72), rgba(16,13,38,.92));
+    border: 1px solid rgba(99,82,200,.34); box-shadow: 0 14px 40px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.03);
+  }
+  .vpn-import-heading {
+    margin-bottom: 22px; padding: 0 0 22px; border: 0; border-radius: 0; box-shadow: none; background: none;
+    border-bottom: 1px solid rgba(139,92,246,.16);
+  }
+  .vpn-import-heading h3 { font-size: 21px; }
+  .vpn-import-heading p { font-size: 14px; }
+  .vpn-import-chevron { display: none; }
+  .vpn-import-group { margin: 0 0 22px; }
+  .vpn-import-group + .vpn-import-group { padding-top: 22px; border-top: 1px solid rgba(139,92,246,.12); }
+  .vpn-import-grid { display: flex; flex-wrap: wrap; gap: 14px; }
+  .vpn-import-app {
+    width: 112px; padding: 14px 6px 12px; border-radius: 18px; gap: 9px; cursor: pointer;
+    border: 1px solid transparent; transition: background .18s ease, border-color .18s ease, transform .16s ease;
+  }
+  .vpn-import-app:hover { background: rgba(139,92,246,.1); border-color: rgba(139,92,246,.28); }
+  .vpn-app-icon { width: 64px; height: 64px; }
+  .vpn-app-icon.is-glyph svg { width: 30px; height: 30px; }
+  .vpn-app-name { font-size: 14px; }
+  .vpn-app-hint { display: block; margin-top: -4px; font: 500 11.5px/1 'Inter', system-ui, sans-serif; color: #8b879c; text-align: center; }
+  .vpn-import-app.is-copied .vpn-app-hint { color: #6ee7b7; }
+  .vpn-import-app.is-primary { background: rgba(139,92,246,.1); border-color: rgba(139,92,246,.26); }
+
+  /* Server titles: full text with ellipsis (marquee is a phone-width workaround) */
+  .server-title-scroll::after { display: none; }
+  .scroll-content { animation: none; padding-left: 0; display: block; overflow: hidden; text-overflow: ellipsis; }
+  .scroll-dup { display: none; }
+
+  #refresh-servers-btn { max-width: 420px; margin: 28px auto 0; }
 
   /* ── Apps / notifications / how-to ── */
   #apps-view .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
   #notifications-view, #howto-view { width: 100%; max-width: 980px; justify-self: center; }
 
-  /* ── Bottom nav becomes a floating centered dock ── */
-  #bottom-nav {
-    left: 50%; right: auto; bottom: 22px;
-    width: min(560px, calc(100vw - 64px));
-    transform: translateX(-50%);
-    border-radius: 22px;
-    border: 1px solid rgba(139, 92, 246, .22) !important;
-    padding-left: 24px; padding-right: 24px;
-  }
+  /* ── Sheets/modals become centred dialogs ── */
+  .bottom-sheet-overlay { align-items: center; padding: 24px; }
+  .bottom-sheet { border-radius: 26px; border-bottom: 1px solid rgba(139,92,246,.22); max-width: 520px; max-height: calc(100vh - 48px); overflow-y: auto; }
+  .speed-test-sheet { max-width: 620px; overflow: hidden; }
 
-  /* ── Sheets/modals become centered dialogs ── */
-  .bottom-sheet-overlay { align-items: center; }
-  .bottom-sheet { border-radius: 24px; border-bottom: 1px solid rgba(139, 92, 246, .22); max-width: 520px; }
-
-  /* ── Login card a little larger on big screens ── */
+  /* Toasts sit in the content area, not under the sidebar */
   .login-inner { max-width: 440px; }
+  #image-modal { padding-left: var(--sidebar-w); }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  #app-content > .container > .premium-card,
+  #app-content > .container > .expiry-card { grid-column: 1 / -1; }
+}
+
+@media (min-width: 1680px) {
+  #app-content > .container { max-width: 1560px; }
 }

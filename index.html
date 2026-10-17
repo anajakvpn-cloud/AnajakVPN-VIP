@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
     <title>AnajakVIP</title>
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#0b0a14">
@@ -44,7 +45,7 @@
 
     <link rel="icon" href="/icon.png">
     <!-- Custom Styles -->
-    <link href="styles.css?v=1.6.4" rel="stylesheet">
+    <link href="styles.css?v=1.7.0" rel="stylesheet">
 </head>
 <body class="min-h-screen text-gray-100 pb-24">
 
@@ -375,23 +376,51 @@
         </div>
     </div>
 
-    <!-- Bottom Navigation Bar -->
-    <div id="bottom-nav" class="fixed bottom-0 left-0 right-0 py-3 px-6 z-50 hidden">
-        <div class="max-w-md mx-auto flex justify-around items-center">
-            <button onclick="backToMain()" class="flex flex-col items-center active transition">
+    <!-- Bottom Navigation Bar (mobile) / Sidebar (desktop ≥1024px) -->
+    <nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 py-3 px-6 z-50 hidden" aria-label="Main navigation">
+        <div class="nav-brand">
+            <img src="icon.png" alt="" width="40" height="40">
+            <div>
+                <p class="nav-brand-name">AnajakVIP</p>
+                <p class="nav-brand-sub">VPN Dashboard</p>
+            </div>
+        </div>
+        <p class="nav-section-label">Menu</p>
+        <div class="nav-items max-w-md mx-auto flex justify-around items-center">
+            <button type="button" data-nav="home" onclick="backToMain()" class="flex flex-col items-center active transition">
                 <i class="fas fa-home text-2xl mb-0.5"></i>
                 <span class="text-[11px] mt-0.5 font-medium">Home</span>
             </button>
-            <button onclick="openSpeedTest()" class="flex flex-col items-center transition">
+            <button type="button" data-nav="apps" onclick="showApps()" class="nav-extra flex flex-col items-center transition">
+                <i class="fas fa-download text-2xl mb-0.5"></i>
+                <span class="text-[11px] mt-0.5 font-medium">Apps</span>
+            </button>
+            <button type="button" data-nav="howto" onclick="showHowToUse()" class="nav-extra flex flex-col items-center transition">
+                <i class="fas fa-circle-question text-2xl mb-0.5"></i>
+                <span class="text-[11px] mt-0.5 font-medium">How to use</span>
+            </button>
+            <button type="button" data-nav="notifications" onclick="showNotifications()" class="nav-extra flex flex-col items-center transition">
+                <i class="fas fa-bell text-2xl mb-0.5"></i>
+                <span class="text-[11px] mt-0.5 font-medium">Notifications</span>
+            </button>
+            <p class="nav-section-label nav-extra">Tools</p>
+            <button type="button" onclick="openSpeedTest()" class="flex flex-col items-center transition">
                 <i class="fas fa-gauge-high text-2xl mb-0.5"></i>
                 <span class="text-[11px] mt-0.5 font-medium">Speed Test</span>
             </button>
-            <button onclick="showMyIP()" class="flex flex-col items-center transition">
+            <button type="button" onclick="showMyIP()" class="flex flex-col items-center transition">
                 <i class="fas fa-network-wired text-2xl mb-0.5"></i>
                 <span class="text-[11px] mt-0.5 font-medium">Check IP</span>
             </button>
         </div>
-    </div>
+        <div class="nav-user nav-extra">
+            <div class="nav-user-avatar"><i class="fas fa-crown"></i></div>
+            <div class="min-w-0">
+                <p class="nav-user-code" id="nav-user-code">User</p>
+                <p class="nav-user-plan">Premium</p>
+            </div>
+        </div>
+    </nav>
 
     <!-- IP Information Bottom Sheet -->
     <div id="ip-modal" class="bottom-sheet-overlay" onclick="if(event.target===this)closeIPModal()">
@@ -605,7 +634,7 @@
         កូដមិនត្រឹមត្រូវ ឬផុតកំណត់!
     </div>
     <!-- Main JavaScript -->
-    <script src="scripts.js?v=1.6.6"></script>
+    <script src="scripts.js?v=1.7.0"></script>
     <script>
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/service-worker.js")

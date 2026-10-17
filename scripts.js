@@ -1034,6 +1034,13 @@ async function closeWarningModal() {
 }    
 
 // ================== NAVIGATION ==================    
+// Every view switch hides all views first, so the desktop sidebar can jump
+// between sections (Apps, How to use, Notifications...) from anywhere.
+function hideAllViews() {
+    ['main-menu', 'server-list-view', 'apps-view', 'howto-view', 'notifications-view']
+        .forEach(id => document.getElementById(id)?.classList.add('hidden'));
+}
+
 function backToMain() {    
     document.getElementById('server-list-view').classList.add('hidden');    
     document.getElementById('apps-view').classList.add('hidden');    
@@ -1046,7 +1053,7 @@ function backToMain() {
 
 function showServers(category) {    
     const list = allServers.filter(s => s.category === category);    
-    document.getElementById('main-menu').classList.add('hidden');    
+    hideAllViews();    
     document.getElementById('server-list-view').classList.remove('hidden');    
     document.getElementById('server-category-title').textContent = categoryTitles[category] || category;    
     renderServerList(list);    
@@ -1055,21 +1062,21 @@ function showServers(category) {
 }    
 
 function showApps() {    
-    document.getElementById('main-menu').classList.add('hidden');    
+    hideAllViews();    
     document.getElementById('apps-view').classList.remove('hidden');    
     hideMainHeaderElements();    
     scrollToTop();    
 }    
 
 function showHowToUse() {    
-    document.getElementById('main-menu').classList.add('hidden');    
+    hideAllViews();    
     document.getElementById('howto-view').classList.remove('hidden');    
     hideMainHeaderElements();    
     scrollToTop();    
 }    
 
 function showNotifications() {    
-    document.getElementById('main-menu').classList.add('hidden');    
+    hideAllViews();    
     document.getElementById('notifications-view').classList.remove('hidden');    
 
     notifications.forEach((n, i) => {    
@@ -1160,14 +1167,7 @@ async function copySubscriptionUrl(categoryKey) {
   }
 }
 
-// ================== PC-ONLY HELPERS ==================
-// "PC" = wide viewport + real mouse. Phones/tablets (touch) keep the mobile layout
-// and the app-import buttons; desktop gets the Copy All Config card instead.
-const PC_ONLY_MQ = '(min-width: 1024px) and (hover: hover) and (pointer: fine)';
-function isPcDevice() {
-  return !!(window.matchMedia && window.matchMedia(PC_ONLY_MQ).matches);
-}
-
+// ================== COPY HELPERS ==================
 async function copyTextToClipboard(text) {
   try {
     await navigator.clipboard.writeText(text);
@@ -1188,47 +1188,69 @@ async function copyTextToClipboard(text) {
   }
 }
 
+// Briefly flips a tile/button into a "Copied!" state (icon -> check, label -> text).
+function flashCopied(btn, text = 'Copied!') {
+  if (!btn) return;
+  const label = btn.querySelector('.vpn-app-name');
+  if (btn._flashTimer) clearTimeout(btn._flashTimer);
+  if (label && btn._origLabel === undefined) btn._origLabel = label.textContent;
+  btn.classList.add('is-copied');
+  if (label) label.textContent = text;
+  btn._flashTimer = setTimeout(() => {
+    btn.classList.remove('is-copied');
+    if (label && btn._origLabel !== undefined) label.textContent = btn._origLabel;
+    btn._origLabel = undefined;
+  }, 1800);
+}
+
+// Resolve one server item to its final config string (random-domain replaced).
+async function resolveServerConfig(item) {
+  return String(await replacePlaceholdersInConfig(String(item.text || ''), item)).trim();
+}
+
 // Copies every server config (vless://... etc.) in the current list, one per line,
-// with random-domain already replaced by the user's subdomain. PC only.
+// with random-domain already replaced by the user's subdomain. Works on every device.
 async function copyAllConfigs(list, btn) {
-  if (!isPcDevice()) {
-    showToast('Copy All Config is available on PC only');
-    return;
-  }
   const servers = (list || []).filter(x => x && x.type !== 'app' && String(x.text || '').trim());
   if (!servers.length) {
     showToast('No server configs to copy');
     return;
   }
-
-  const label = btn?.querySelector('.vpn-app-name') || btn?.querySelector('span');
-  const original = label ? label.textContent : '';
   if (btn) btn.disabled = true;
-  if (label) label.textContent = 'Copying...';
-
   try {
     const lines = [];
     for (const item of servers) {
-      const cfg = String(await replacePlaceholdersInConfig(String(item.text || ''), item)).trim();
+      const cfg = await resolveServerConfig(item);
       if (cfg) lines.push(cfg);
     }
     const ok = lines.length ? await copyTextToClipboard(lines.join('\n')) : false;
     if (ok) {
       showToast(`Copied ${lines.length} config${lines.length > 1 ? 's' : ''}`);
-      if (label) label.textContent = 'Copied!';
+      flashCopied(btn, `${lines.length} copied`);
     } else {
       showToast('Copy failed');
-      if (label) label.textContent = original;
     }
   } catch (e) {
     console.error('copyAllConfigs failed:', e);
     showToast('Copy failed');
-    if (label) label.textContent = original;
   } finally {
-    if (btn) {
-      btn.disabled = false;
-      setTimeout(() => { if (label) label.textContent = original; }, 1800);
+    if (btn) btn.disabled = false;
+  }
+}
+
+// Copies a single server's config.
+async function copyServerConfig(item, btn) {
+  try {
+    const cfg = await resolveServerConfig(item);
+    if (cfg && await copyTextToClipboard(cfg)) {
+      showToast('បានចម្លង config រួចរាល់');
+      if (btn) { btn.classList.add('is-copied'); setTimeout(() => btn.classList.remove('is-copied'), 1500); }
+    } else {
+      showToast('ចម្លងមិនបាន');
     }
+  } catch (e) {
+    console.error('copyServerConfig failed:', e);
+    showToast('ចម្លងមិនបាន');
   }
 }
 
@@ -1500,33 +1522,73 @@ async function renderServerList(list) {
     // One shared, clean subscription-import panel above the server cards.
     const importCategory = (list.find(x => x.type === 'server' && x.category)?.category) ||
         (list.find(x => x.type === 'server')?.category) || '';
+
+    // Apps that can import a subscription URL through a deep link.
+    // `icon` = bundled logo; apps without a bundled logo get a coloured monogram tile.
     const importApps = [
-      { name: 'V2Box', image: 'icons/v2box.png', scheme: (u, n) => `v2box://install-sub?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` },
-      { name: 'V2rayTun', image: 'icons/v2raytun.png', scheme: u => `v2raytun://import/${u}` },
-      { name: 'Happ', image: 'icons/happ.png', scheme: u => `happ://add/${u}` },
-      { name: 'Nekobox', image: 'icons/nekobox.png', scheme: (u, n) => `sn://subscription?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` }
+      { name: 'V2Box',    icon: 'icons/v2box.png',    scheme: (u, n) => `v2box://install-sub?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` },
+      { name: 'V2rayTun', icon: 'icons/v2raytun.png', scheme: u => `v2raytun://import/${u}` },
+      { name: 'Happ',     icon: 'icons/happ.png',     scheme: u => `happ://add/${u}` },
+      { name: 'Nekobox',  icon: 'icons/nekobox.png',  scheme: (u, n) => `sn://subscription?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` },
+      { name: 'V2rayNG',  icon: 'icons/v2rayng.png',  scheme: (u, n) => `v2rayng://install-sub?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` },
+      { name: 'Hiddify',  mono: 'H', tone: 'tone-hiddify',   scheme: (u, n) => `hiddify://import/${u}#${encodeURIComponent(n)}` },
+      { name: 'Streisand', mono: 'S', tone: 'tone-streisand', scheme: u => `streisand://import/${u}` }
     ];
 
     const catLabel = (document.getElementById('server-category-title')?.textContent || '').trim();
     const serverCount = list.filter(x => x.type === 'server').length;
+    const copyableCount = list.filter(x => x.type !== 'app' && String(x.text || '').trim()).length;
+    const subCategory = importCategory || (list.find(x => x.category)?.category) || '';
 
-    // ── Mobile / touch devices: import into a VPN app ──
+    const copyGlyph = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2.5"></rect><path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5"></path></svg>';
+    const checkGlyph = '<svg class="glyph-check" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>';
+    const linkGlyph = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"></path><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"></path></svg>';
+
+    const copyTiles = [];
+    if (copyableCount > 0) {
+      copyTiles.push(`<button type="button" class="vpn-import-app vpn-copy-btn is-primary" data-copy="configs" aria-label="Copy all VLESS configs"><span class="vpn-app-icon is-glyph tone-copy">${copyGlyph}${checkGlyph}</span><span class="vpn-app-name">Copy VLESS</span><span class="vpn-app-hint">${copyableCount} server${copyableCount > 1 ? 's' : ''}</span></button>`);
+    }
+    if (subCategory) {
+      copyTiles.push(`<button type="button" class="vpn-import-app vpn-copy-btn" data-copy="sub" aria-label="Copy subscription URL"><span class="vpn-app-icon is-glyph tone-link">${linkGlyph}${checkGlyph}</span><span class="vpn-app-name">Copy Sub URL</span><span class="vpn-app-hint">Subscription</span></button>`);
+    }
+
+    const appTiles = importApps.map((app, i) => {
+      const visual = app.icon
+        ? `<img src="${app.icon}" alt="${app.name} app icon" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><i class="fas fa-shield-alt" style="display:none"></i>`
+        : `<b class="vpn-mono">${app.mono}</b>`;
+      return `<button type="button" class="vpn-import-app" data-app-index="${i}" aria-label="Import with ${app.name}"><span class="vpn-app-icon ${app.tone || ''}">${visual}</span><span class="vpn-app-name">${app.name}</span><span class="vpn-app-hint">Import</span></button>`;
+    }).join('');
+
     const importPanel = document.createElement('section');
     importPanel.className = 'vpn-import-panel';
-    importPanel.innerHTML = `<div class="vpn-import-heading"><div class="vpn-import-mark"><i class="fas fa-link"></i></div><div><h3>Import Subscription</h3><p>Choose your VPN app to import</p></div><span class="vpn-import-chevron"><i class="fas fa-chevron-right"></i></span></div><div class="vpn-import-grid">${serverCount > 0 ? `<button type="button" class="vpn-import-app vpn-copy-btn pc-only" aria-label="Copy all configs"><span class="vpn-app-icon is-glyph"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2.5"></rect><path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5"></path></svg></span><span class="vpn-app-name">Copy</span></button>` : ''}${importApps.map((app,i) => `<button type="button" class="vpn-import-app${i === 0 ? ' is-primary' : ''}" data-app-index="${i}" aria-label="Import with ${app.name}"><span class="vpn-app-icon"><img src="${app.image}" alt="${app.name} app icon" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><i class="fas fa-shield-alt" style="display:none"></i></span><span class="vpn-app-name">${app.name}</span></button>`).join('')}</div>`;
-    const copyBtn = importPanel.querySelector('.vpn-copy-btn');
-    if (copyBtn) copyBtn.addEventListener('click', () => copyAllConfigs(list, copyBtn));
+    importPanel.innerHTML = `
+      <div class="vpn-import-heading">
+        <div class="vpn-import-mark"><i class="fas fa-link"></i></div>
+        <div><h3>Import Subscription</h3><p>Copy configs or open your VPN app</p></div>
+        <span class="vpn-import-chevron"><i class="fas fa-chevron-right"></i></span>
+      </div>
+      ${copyTiles.length ? `<div class="vpn-import-group"><div class="vpn-group-label"><i class="fas fa-copy"></i>Copy config</div><div class="vpn-import-grid">${copyTiles.join('')}</div></div>` : ''}
+      ${subCategory ? `<div class="vpn-import-group"><div class="vpn-group-label"><i class="fas fa-mobile-screen"></i>Open in app</div><div class="vpn-import-grid">${appTiles}</div></div>` : ''}`;
+
+    importPanel.querySelector('[data-copy="configs"]')?.addEventListener('click', e => copyAllConfigs(list, e.currentTarget));
+    importPanel.querySelector('[data-copy="sub"]')?.addEventListener('click', async e => {
+      const btn = e.currentTarget;
+      const url = buildSubscriptionUrl(subCategory);
+      if (!url) { showToast('មិនមាន Subscription URL'); return; }
+      if (await copyTextToClipboard(url)) { showToast('បានចម្លង Subscription URL'); flashCopied(btn); }
+      else showToast('ចម្លងមិនបាន');
+    });
     importPanel.querySelectorAll('.vpn-import-app[data-app-index]').forEach(btn => btn.addEventListener('click', () => {
       const app = importApps[Number(btn.dataset.appIndex)];
-      const category = importCategory || (list.find(x => x.category)?.category) || '';
-      const subscription = category ? buildSubscriptionUrl(category) : '';
+      const subscription = subCategory ? buildSubscriptionUrl(subCategory) : '';
       if (!subscription) { showToast('Subscription URL is unavailable for this category'); return; }
 
-      // Use the app's URI scheme; if Android cannot resolve it, offer the subscription URL for manual import.
-      const fallback = () => { try { navigator.clipboard.writeText(subscription).then(() => showToast(`${app.name} not opened — subscription URL copied`)).catch(() => { window.prompt('Copy subscription URL into ' + app.name, subscription); }); } catch (_) { window.prompt('Copy subscription URL into ' + app.name, subscription); } };
+      // Use the app's URI scheme; if it can't be resolved (or on desktop, where
+      // these mobile schemes usually do nothing), copy the subscription URL for manual import.
+      const fallback = () => { copyTextToClipboard(subscription).then(ok => ok ? showToast(`${app.name} not opened — subscription URL copied`) : window.prompt('Copy subscription URL into ' + app.name, subscription)); };
       let timer = setTimeout(fallback, 1200);
       document.addEventListener('visibilitychange', function onVisible() { if (document.hidden) { clearTimeout(timer); document.removeEventListener('visibilitychange', onVisible); } });
-      const subName = categoryTitles[category] || category || 'AnajakVPN';
+      const subName = categoryTitles[subCategory] || subCategory || 'AnajakVPN';
       window.location.href = app.scheme(subscription, subName);
     }));
     container.appendChild(importPanel);
@@ -1622,7 +1684,7 @@ async function renderServerList(list) {
                 <div class="scroll-container">    
                     <div class="server-title-scroll" title="${item.title}">    
                         <span class="scroll-content">    
-                            ${item.title}&nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;${item.title}    
+                            ${item.title}<span class="scroll-dup">&nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;${item.title}</span>    
                         </span>    
                     </div>    
                 </div>    
@@ -1647,9 +1709,12 @@ async function renderServerList(list) {
 
                     <div class="server-actions">    
                         <span class="ping-result text-xs font-semibold text-emerald-400" data-ip="${serverIP || ''}">...</span>
-</div>    
+                        ${String(item.text || '').trim() ? `<button type="button" class="server-copy-btn" aria-label="Copy VLESS config" title="Copy config"><i class="fas fa-copy"></i><i class="fas fa-check"></i></button>` : ''}
+                    </div>    
                 </div>    
             `;    
+
+            div.querySelector('.server-copy-btn')?.addEventListener('click', e => copyServerConfig(item, e.currentTarget));
 
             if (serverIP) {    
                 const pingElement = div.querySelector('.ping-result');    
@@ -2242,4 +2307,28 @@ function initApp() {
       }
     });
   });
+})();
+
+
+// ================== NAV (sidebar / bottom bar) ACTIVE STATE ==================
+(function initNavSync() {
+  const viewToNav = { backToMain: 'home', showServers: 'home', showApps: 'apps', showHowToUse: 'howto', showNotifications: 'notifications' };
+  function setActive(key) {
+    document.querySelectorAll('#bottom-nav [data-nav]').forEach(b => b.classList.toggle('active', b.dataset.nav === key));
+  }
+  Object.keys(viewToNav).forEach(fn => {
+    const original = window[fn];
+    if (typeof original !== 'function') return;
+    window[fn] = function () {
+      setActive(viewToNav[fn]);
+      return original.apply(this, arguments);
+    };
+  });
+  // Mirror the logged-in code into the desktop sidebar.
+  const userEl = document.getElementById('user-code-display');
+  const navUser = document.getElementById('nav-user-code');
+  if (userEl && navUser) {
+    new MutationObserver(() => { navUser.textContent = userEl.textContent || 'User'; })
+      .observe(userEl, { childList: true, characterData: true, subtree: true });
+  }
 })();
