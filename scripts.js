@@ -1151,6 +1151,31 @@ async function copySubscriptionUrl(categoryKey) {
   }
 }
 
+
+// Open the user's category subscription directly in a supported VPN client.
+function openSubscriptionInApp(appKey, categoryKey) {
+  const url = buildSubscriptionUrl(categoryKey);
+  if (!url) { showToast('សូមចូលគណនីជាមុនសិន'); return; }
+  const encoded = encodeURIComponent(url);
+  const links = {
+    v2box: `v2box://import?url=${encoded}`,
+    happ: `happ://add/${encoded}`,
+    proxyutility: `proxyutility://import?url=${encoded}`,
+    v2rayng: `v2rayng://install-config?url=${encoded}`,
+    nekobox: `nekobox://import?url=${encoded}`,
+    v2raytun: `v2raytun://import?url=${encoded}`
+  };
+  const target = links[appKey];
+  if (!target) return;
+  // Android intent links give Android a chance to resolve the installed app.
+  if (/Android/i.test(navigator.userAgent)) {
+    const packageNames = {v2rayng:'com.v2ray.ang', nekobox:'moe.nb4a', v2box:'dev.hexasoftware.v2box', happ:'com.happproxy', v2raytun:'com.v2raytun', proxyutility:'com.proxyutility'};
+    const schemeTarget = target.replace(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//, '');
+    const scheme = target.split(':')[0];
+    window.location.href = `intent://${schemeTarget}#Intent;scheme=${scheme};package=${packageNames[appKey] || ''};end`;
+  } else { window.location.href = target; }
+}
+
 // ================== RENDER MAIN MENU ==================
 function renderMainMenu() {
     const container = document.getElementById('main-menu');
@@ -1490,10 +1515,6 @@ async function renderServerList(list) {
         } else {    
             let configText = await replacePlaceholdersInConfig(item.text || '', item);    
 
-            const shortText = configText.length > 50     
-                ? configText.substring(0, 50) + '...'     
-                : configText;    
-
             const serverIP = item.ip || null;    
 
             const scrollingTitle = item.title.length > 20 ? `    
@@ -1518,19 +1539,22 @@ async function renderServerList(list) {
                                   <span style="width:6px;height:6px;border-radius:50%;background:#a78bfa;display:inline-block;flex-shrink:0;"></span>
                                   ${scrollingTitle}
                                 </div>
-                                <p class="text-xs text-gray-500 truncate-text" title="${configText}">${shortText}</p>    
+                                <p class="text-xs text-gray-500">Tap an app icon to import subscription</p>
                             </div>    
                         </div>    
                     </div>    
 
-                    <div class="server-actions">    
-                        <span class="ping-result text-xs font-semibold text-emerald-400" data-ip="${serverIP || ''}">...</span>    
-                        <button onclick="copyText('${configText.replace(/'/g, "\\'")}')"    
-                                class="text-white flex items-center gap-1.5 transition font-medium text-xs">    
-                            <i class="fas fa-copy"></i>    
-                            <span>ចម្លង</span>    
-                        </button>    
-                    </div>    
+                    <div class="server-actions server-app-actions">
+                        <span class="ping-result text-xs font-semibold text-emerald-400" data-ip="${serverIP || ''}">...</span>
+                        <div class="vpn-app-icons" aria-label="Import subscription into VPN app">
+                          <button type="button" class="vpn-app-icon" title="V2Box" aria-label="Import to V2Box" onclick="openSubscriptionInApp('v2box','${item.category || ''}')"><span class="app-mark v2box-mark">V2</span></button>
+                          <button type="button" class="vpn-app-icon" title="Happ" aria-label="Import to Happ" onclick="openSubscriptionInApp('happ','${item.category || ''}')"><span class="app-mark happ-mark">H</span></button>
+                          <button type="button" class="vpn-app-icon" title="Proxy Utility" aria-label="Import to Proxy Utility" onclick="openSubscriptionInApp('proxyutility','${item.category || ''}')"><span class="app-mark proxy-mark"><i class="fas fa-shield-alt"></i></span></button>
+                          <button type="button" class="vpn-app-icon" title="v2rayNG (Android)" aria-label="Import to v2rayNG" onclick="openSubscriptionInApp('v2rayng','${item.category || ''}')"><span class="app-mark v2rayng-mark">N</span></button>
+                          <button type="button" class="vpn-app-icon" title="NekoBox (Android)" aria-label="Import to NekoBox" onclick="openSubscriptionInApp('nekobox','${item.category || ''}')"><span class="app-mark neko-mark"><i class="fas fa-cat"></i></span></button>
+                          <button type="button" class="vpn-app-icon" title="V2RayTun" aria-label="Import to V2RayTun" onclick="openSubscriptionInApp('v2raytun','${item.category || ''}')"><span class="app-mark tun-mark"><i class="fas fa-bolt"></i></span></button>
+                        </div>
+                    </div>
                 </div>    
             `;    
 
