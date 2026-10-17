@@ -1440,3 +1440,131 @@ button.vpn-square-btn:hover { background:linear-gradient(145deg,rgba(96,48,185,.
   .vpn-import-heading p { font-size:12px; }
   .vpn-page-title { font-size:21px; }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   PC / DESKTOP LAYOUT  (wide screen + mouse only; phones & tablets
+   keep the mobile layout above)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Copy All Config card – hidden everywhere except PC */
+.pc-only { display: none; }
+
+.vpn-copyall-panel {
+  align-items: center;
+  gap: 18px;
+  padding: 18px 22px;
+  border-radius: 20px;
+  border: 1px solid rgba(99, 82, 200, .38);
+  background: linear-gradient(145deg, rgba(33, 26, 76, .78), rgba(18, 14, 44, .9));
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .25), inset 0 1px 0 rgba(255, 255, 255, .03);
+}
+.vpn-copyall-icon {
+  flex: 0 0 52px; width: 52px; height: 52px; display: grid; place-items: center;
+  border-radius: 50%; color: #c9a5ff; font-size: 22px;
+  border: 1.5px solid rgba(139, 92, 246, .7);
+  background: linear-gradient(145deg, rgba(91, 45, 180, .35), rgba(30, 18, 70, .6));
+  box-shadow: 0 0 18px rgba(124, 58, 237, .2);
+}
+.vpn-copyall-text { flex: 1; min-width: 0; }
+.vpn-copyall-text h3 {
+  margin: 0; color: #fff; font-size: 19px; font-weight: 700; letter-spacing: -.02em;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+.vpn-copyall-text p {
+  margin: 4px 0 0; color: #a9a7e6; font-size: 14px; line-height: 1.35;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+.vpn-copyall-btn {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  min-width: 150px; padding: 13px 24px; border: 0; border-radius: 14px; cursor: pointer;
+  color: #fff; font-size: 15px; font-weight: 700; font-family: 'Inter', system-ui, sans-serif;
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  box-shadow: 0 8px 22px rgba(109, 40, 217, .4);
+  transition: transform .15s ease, box-shadow .2s ease, filter .2s ease;
+}
+.vpn-copyall-btn:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 12px 28px rgba(109, 40, 217, .55); }
+.vpn-copyall-btn:active { transform: translateY(0) scale(.98); }
+.vpn-copyall-btn:disabled { opacity: .7; cursor: progress; transform: none; }
+.vpn-copyall-btn:focus-visible { outline: 2px solid rgba(196, 181, 253, .9); outline-offset: 3px; }
+
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+
+  .pc-only { display: flex; }
+  .mobile-only { display: none !important; }
+
+  /* ── Full-width page shell: 12-column grid ── */
+  #app-content > .container {
+    max-width: 1680px;
+    width: 100%;
+    padding: 32px clamp(32px, 4vw, 72px) 130px;
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: 24px;
+    row-gap: 22px;
+    align-items: stretch;
+  }
+  #app-content > .container > * { grid-column: 1 / -1; margin-bottom: 0; }
+
+  /* Dashboard top row: user card | expiry | search */
+  #app-content > .container > .premium-card,
+  #app-content > .container > .expiry-card,
+  #app-content > .container > #search-wrap { grid-column: span 4; }
+
+  #top-app-header #logout-btn { font-size: 14px; }
+  #top-app-header p.text-\[15px\] { font-size: 20px; }
+
+  .premium-card { padding: 24px 26px; }
+  .premium-card #user-code-display { font-size: 28px; }
+  .expiry-card { padding: 20px 24px !important; }
+
+  #search-wrap:not(.hidden) { display: flex; align-items: stretch; }
+  #search-wrap input { height: 100%; min-height: 64px; font-size: 16px; border-radius: 18px; }
+
+  /* ── Main menu: responsive card grid ── */
+  #main-menu:not(.hidden) {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 18px;
+  }
+  #main-menu > * { margin-top: 0 !important; }
+  #main-menu .card-item { padding: 20px 24px; }
+  #main-menu .card-item h2 { font-size: 17px; }
+
+  /* ── Server list: import / copy card on top, servers in a grid ── */
+  #server-list-view .vpn-topbar { margin-bottom: 26px; }
+  #server-list-view .vpn-page-title { font-size: 28px; }
+  #servers-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 18px;
+    align-items: start;
+  }
+  #servers-container > .vpn-copyall-panel,
+  #servers-container > .vpn-section-label,
+  #servers-container > p { grid-column: 1 / -1; }
+  #servers-container > .vpn-section-label { margin: 8px 2px 0; }
+  #servers-container > .card-bg { margin-bottom: 0; }
+  #refresh-servers-btn { max-width: 420px; margin-left: auto; margin-right: auto; margin-top: 26px; }
+
+  /* ── Apps / notifications / how-to ── */
+  #apps-view .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+  #notifications-view, #howto-view { width: 100%; max-width: 980px; justify-self: center; }
+
+  /* ── Bottom nav becomes a floating centered dock ── */
+  #bottom-nav {
+    left: 50%; right: auto; bottom: 22px;
+    width: min(560px, calc(100vw - 64px));
+    transform: translateX(-50%);
+    border-radius: 22px;
+    border: 1px solid rgba(139, 92, 246, .22) !important;
+    padding-left: 24px; padding-right: 24px;
+  }
+
+  /* ── Sheets/modals become centered dialogs ── */
+  .bottom-sheet-overlay { align-items: center; }
+  .bottom-sheet { border-radius: 24px; border-bottom: 1px solid rgba(139, 92, 246, .22); max-width: 520px; }
+
+  /* ── Login card a little larger on big screens ── */
+  .login-inner { max-width: 440px; }
+}

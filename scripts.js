@@ -8,20 +8,6 @@ const SHARED_SUBDOMAIN_KEY = "viphxhxz"; // Fallback key only when no matching s
 // Select the first already-existing VIP code with the same expiry date.
 // This makes VIPAAA reuse VIPBBB's hostname when VIPBBB is the established
 // code for that expiry date, instead of generating a hostname from the login code.
-// Resolve a missing expiry for newly added login codes from existing VIP records.
- // Prefer the sole unique expiry date; if several exist, use the first non-expired
- // saved expiry in vipdata.json so the generator can still produce a valid profile.
- // Resolve expiry ONLY from the exact login-code record. Never borrow another code's date.
-function resolveExpiryForCode(code, expiryDate) {
-  const normalized = normalizeCode(code || '');
-  const entries = Array.isArray(validCodes) ? validCodes : [];
-  const exact = entries.find(entry =>
-    normalizeCode(entry && (entry.code || entry.vip_code || entry.vipCode)) === normalized
-  );
-  const ownExpiry = exact && (exact.expiry_date || exact.expiry);
-  return String(ownExpiry || expiryDate || '').trim();
-}
-
 function getCanonicalHostnameKey(expiryDate) {
   const ymd = String(expiryDate || '').replace(/[^0-9]/g, '').slice(0, 8);
   if (ymd.length !== 8) return SHARED_SUBDOMAIN_KEY;
@@ -305,13 +291,10 @@ function buildLocalSubdomainMap(code, expiry_date) {
   const savedEntry = (validCodes || []).find(entry =>
     normalizeCode(entry && (entry.code || entry.vip_code || entry.vipCode)) === normalized
   );
-  const canonicalExpiry = resolveExpiryForCode(code, savedEntry
+  const canonicalExpiry = savedEntry
     ? (savedEntry.expiry_date || savedEntry.expiry)
-    : expiry_date);
-  if (!canonicalExpiry) {
-    console.warn('[Subdomain map] Cannot resolve expiry for code:', code);
-    return;
-  }
+    : expiry_date;
+  if (!canonicalExpiry) return;
 
   // Use one shared hostname key so different VIP codes with the same expiry
   // resolve to the same subdomain (for VLESS/V2Ray random-domain placeholders).
@@ -352,9 +335,9 @@ async function prewarmUserSubdomains(code, expiry_date) {
   const savedEntry = (validCodes || []).find(entry =>
     normalizeCode(entry && (entry.code || entry.vip_code || entry.vipCode)) === normalized
   );
-  const canonicalExpiry = resolveExpiryForCode(code, savedEntry
+  const canonicalExpiry = savedEntry
     ? (savedEntry.expiry_date || savedEntry.expiry)
-    : expiry_date);
+    : expiry_date;
   if (!canonicalExpiry) return false;
 
   // Always build local map first so copy-config works even if worker fails
@@ -991,7 +974,15 @@ function attemptAutoLogin() {
             document.getElementById('app-content').classList.remove('hidden');
             document.getElementById('bottom-nav').classList.remove('hidden');
 
-            showMainHeaderElements();
+            // Only restore the dashboard cards/search when the main menu is the
+            // visible view. attemptAutoLogin() also runs every time the tab becomes
+            // visible again; calling showMainHeaderElements() unconditionally made
+            // the code card, expiry card and search reappear inside server/apps/
+            // how-to/notification views after leaving and reopening the browser.
+            const mainMenuEl = document.getElementById('main-menu');
+            if (mainMenuEl && !mainMenuEl.classList.contains('hidden')) {
+                showMainHeaderElements();
+            }
 
             if (!hasSeenWarning) {
                 document.getElementById('warning-modal').classList.add('show'); document.body.style.overflow = 'hidden';
@@ -1166,6 +1157,78 @@ async function copySubscriptionUrl(categoryKey) {
   } catch (e) {
     console.error(e);
     showToast('ចម្លងមិនបាន');
+  }
+}
+
+// ================== PC-ONLY HELPERS ==================
+// "PC" = wide viewport + real mouse. Phones/tablets (touch) keep the mobile layout
+// and the app-import buttons; desktop gets the Copy All Config card instead.
+const PC_ONLY_MQ = '(min-width: 1024px) and (hover: hover) and (pointer: fine)';
+function isPcDevice() {
+  return !!(window.matchMedia && window.matchMedia(PC_ONLY_MQ).matches);
+}
+
+async function copyTextToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (_) { /* fall through to legacy copy */ }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  } catch (_) {
+    return false;
+  }
+}
+
+// Copies every server config (vless://... etc.) in the current list, one per line,
+// with random-domain already replaced by the user's subdomain. PC only.
+async function copyAllConfigs(list, btn) {
+  if (!isPcDevice()) {
+    showToast('Copy All Config is available on PC only');
+    return;
+  }
+  const servers = (list || []).filter(x => x && x.type !== 'app' && String(x.text || '').trim());
+  if (!servers.length) {
+    showToast('No server configs to copy');
+    return;
+  }
+
+  const label = btn?.querySelector('span');
+  const original = label ? label.textContent : '';
+  if (btn) btn.disabled = true;
+  if (label) label.textContent = 'Copying...';
+
+  try {
+    const lines = [];
+    for (const item of servers) {
+      const cfg = String(await replacePlaceholdersInConfig(String(item.text || ''), item)).trim();
+      if (cfg) lines.push(cfg);
+    }
+    const ok = lines.length ? await copyTextToClipboard(lines.join('\n')) : false;
+    if (ok) {
+      showToast(`Copied ${lines.length} config${lines.length > 1 ? 's' : ''}`);
+      if (label) label.textContent = 'Copied!';
+    } else {
+      showToast('Copy failed');
+      if (label) label.textContent = original;
+    }
+  } catch (e) {
+    console.error('copyAllConfigs failed:', e);
+    showToast('Copy failed');
+    if (label) label.textContent = original;
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      setTimeout(() => { if (label) label.textContent = original; }, 1800);
+    }
   }
 }
 
@@ -1439,22 +1502,35 @@ async function renderServerList(list) {
         (list.find(x => x.type === 'server')?.category) || '';
     const importApps = [
       { name: 'V2Box', image: 'icons/v2box.png', scheme: (u, n) => `v2box://install-sub?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` },
-      { name: 'V2rayGN', image: 'icons/v2rayng.png', scheme: (u, n) => `v2rayng://install-sub?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` },
+      // Netmod has no documented import link, so this button copies the subscription URL to paste in Netmod.
+      { name: 'Netmod', image: 'icons/netmod.png', copyOnly: true },
       { name: 'V2rayTun', image: 'icons/v2raytun.png', scheme: u => `v2raytun://import/${u}` },
       { name: 'Happ', image: 'icons/happ.png', scheme: u => `happ://add/${u}` },
       { name: 'Nekobox', image: 'icons/nekobox.png', scheme: (u, n) => `sn://subscription?url=${encodeURIComponent(u)}&name=${encodeURIComponent(n)}` }
     ];
 
-    const importPanel = document.createElement('section');
-    importPanel.className = 'vpn-import-panel';
     const catLabel = (document.getElementById('server-category-title')?.textContent || '').trim();
     const serverCount = list.filter(x => x.type === 'server').length;
-    importPanel.innerHTML = `<div class="vpn-import-heading"><div class="vpn-import-mark"><i class="fas fa-link"></i></div><div><h3>Import Subscription</h3><p>Choose your VPN app to import</p></div><span class="vpn-import-chevron"><i class="fas fa-chevron-right"></i></span></div><div class="vpn-import-grid">${importApps.map((app,i) => `<button type="button" class="vpn-import-app${i === 0 ? ' is-primary' : ''}" data-app-index="${i}" aria-label="Import with ${app.name}"><span class="vpn-app-icon"><img src="${app.image}" alt="${app.name} app icon" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><i class="fas fa-shield-alt" style="display:none"></i></span><span class="vpn-app-name">${app.name}</span></button>`).join('')}</div>${catLabel ? `<div class="vpn-section-label"><span>${catLabel}</span>${serverCount ? `<em>${serverCount} servers</em>` : ''}</div>` : ''}`;
+
+    // ── Mobile / touch devices: import into a VPN app ──
+    const importPanel = document.createElement('section');
+    importPanel.className = 'vpn-import-panel mobile-only';
+    importPanel.innerHTML = `<div class="vpn-import-heading"><div class="vpn-import-mark"><i class="fas fa-link"></i></div><div><h3>Import Subscription</h3><p>Choose your VPN app to import</p></div><span class="vpn-import-chevron"><i class="fas fa-chevron-right"></i></span></div><div class="vpn-import-grid">${importApps.map((app,i) => `<button type="button" class="vpn-import-app${i === 0 ? ' is-primary' : ''}" data-app-index="${i}" aria-label="Import with ${app.name}"><span class="vpn-app-icon"><img src="${app.image}" alt="${app.name} app icon" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><i class="fas fa-shield-alt" style="display:none"></i></span><span class="vpn-app-name">${app.name}</span></button>`).join('')}</div>`;
     importPanel.querySelectorAll('.vpn-import-app').forEach(btn => btn.addEventListener('click', () => {
       const app = importApps[Number(btn.dataset.appIndex)];
       const category = importCategory || (list.find(x => x.category)?.category) || '';
       const subscription = category ? buildSubscriptionUrl(category) : '';
       if (!subscription) { showToast('Subscription URL is unavailable for this category'); return; }
+
+      // Apps without an import link: copy the subscription URL for manual paste.
+      if (app.copyOnly) {
+        copyTextToClipboard(subscription).then(ok => {
+          if (ok) showToast(`Subscription URL copied — paste it into ${app.name}`);
+          else window.prompt('Copy subscription URL into ' + app.name, subscription);
+        });
+        return;
+      }
+
       // Use the app's URI scheme; if Android cannot resolve it, offer the subscription URL for manual import.
       const fallback = () => { try { navigator.clipboard.writeText(subscription).then(() => showToast(`${app.name} not opened — subscription URL copied`)).catch(() => { window.prompt('Copy subscription URL into ' + app.name, subscription); }); } catch (_) { window.prompt('Copy subscription URL into ' + app.name, subscription); } };
       let timer = setTimeout(fallback, 1200);
@@ -1463,6 +1539,24 @@ async function renderServerList(list) {
       window.location.href = app.scheme(subscription, subName);
     }));
     container.appendChild(importPanel);
+
+    // ── PC only: copy every config (vless://...) in this list ──
+    if (serverCount > 0) {
+      const copyPanel = document.createElement('section');
+      copyPanel.className = 'vpn-copyall-panel pc-only';
+      copyPanel.innerHTML = `<div class="vpn-copyall-icon"><i class="fas fa-copy"></i></div><div class="vpn-copyall-text"><h3>Copy All Config</h3><p>${serverCount} server${serverCount > 1 ? 's' : ''} &middot; vless:// links for v2rayN, Nekoray &amp; other PC clients</p></div><button type="button" class="vpn-copyall-btn" aria-label="Copy all configs"><i class="fas fa-copy"></i><span>Copy all</span></button>`;
+      const copyBtn = copyPanel.querySelector('.vpn-copyall-btn');
+      copyBtn.addEventListener('click', () => copyAllConfigs(list, copyBtn));
+      container.appendChild(copyPanel);
+    }
+
+    // Category label + server count (shown on every device)
+    if (catLabel) {
+      const labelEl = document.createElement('div');
+      labelEl.className = 'vpn-section-label';
+      labelEl.innerHTML = `<span>${catLabel}</span>${serverCount ? `<em>${serverCount} servers</em>` : ''}`;
+      container.appendChild(labelEl);
+    }
 
     if (list.length === 0) {    
         container.innerHTML = '<p class="text-center text-gray-500 py-8">មិនមាន server ឬកម្មវិធី</p>';    

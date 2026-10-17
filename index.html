@@ -44,7 +44,7 @@
 
     <link rel="icon" href="/icon.png">
     <!-- Custom Styles -->
-    <link href="styles.css?v=1.6.2" rel="stylesheet">
+    <link href="styles.css?v=1.6.3" rel="stylesheet">
 </head>
 <body class="min-h-screen text-gray-100 pb-24">
 
@@ -171,7 +171,7 @@
             </div>
 
             <!-- Search Bar -->
-            <div class="mb-4 relative">
+            <div id="search-wrap" class="mb-4 relative">
                 <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
                 <input type="text" id="search-input" placeholder="ស្វែងរក server..." 
                        class="w-full pl-10 pr-10 py-3 text-sm placeholder:text-gray-600">
@@ -605,7 +605,7 @@
         កូដមិនត្រឹមត្រូវ ឬផុតកំណត់!
     </div>
     <!-- Main JavaScript -->
-    <script src="scripts.js?v=1.6.4"></script>
+    <script src="scripts.js?v=1.6.5"></script>
     <script>
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/service-worker.js")
