@@ -8,6 +8,20 @@ const SHARED_SUBDOMAIN_KEY = "viphxhxz"; // Fallback key only when no matching s
 // Select the first already-existing VIP code with the same expiry date.
 // This makes VIPAAA reuse VIPBBB's hostname when VIPBBB is the established
 // code for that expiry date, instead of generating a hostname from the login code.
+// Resolve a missing expiry for newly added login codes from existing VIP records.
+ // Prefer the sole unique expiry date; if several exist, use the first non-expired
+ // saved expiry in vipdata.json so the generator can still produce a valid profile.
+ // Resolve expiry ONLY from the exact login-code record. Never borrow another code's date.
+function resolveExpiryForCode(code, expiryDate) {
+  const normalized = normalizeCode(code || '');
+  const entries = Array.isArray(validCodes) ? validCodes : [];
+  const exact = entries.find(entry =>
+    normalizeCode(entry && (entry.code || entry.vip_code || entry.vipCode)) === normalized
+  );
+  const ownExpiry = exact && (exact.expiry_date || exact.expiry);
+  return String(ownExpiry || expiryDate || '').trim();
+}
+
 function getCanonicalHostnameKey(expiryDate) {
   const ymd = String(expiryDate || '').replace(/[^0-9]/g, '').slice(0, 8);
   if (ymd.length !== 8) return SHARED_SUBDOMAIN_KEY;
@@ -291,10 +305,13 @@ function buildLocalSubdomainMap(code, expiry_date) {
   const savedEntry = (validCodes || []).find(entry =>
     normalizeCode(entry && (entry.code || entry.vip_code || entry.vipCode)) === normalized
   );
-  const canonicalExpiry = savedEntry
+  const canonicalExpiry = resolveExpiryForCode(code, savedEntry
     ? (savedEntry.expiry_date || savedEntry.expiry)
-    : expiry_date;
-  if (!canonicalExpiry) return;
+    : expiry_date);
+  if (!canonicalExpiry) {
+    console.warn('[Subdomain map] Cannot resolve expiry for code:', code);
+    return;
+  }
 
   // Use one shared hostname key so different VIP codes with the same expiry
   // resolve to the same subdomain (for VLESS/V2Ray random-domain placeholders).
@@ -335,9 +352,9 @@ async function prewarmUserSubdomains(code, expiry_date) {
   const savedEntry = (validCodes || []).find(entry =>
     normalizeCode(entry && (entry.code || entry.vip_code || entry.vipCode)) === normalized
   );
-  const canonicalExpiry = savedEntry
+  const canonicalExpiry = resolveExpiryForCode(code, savedEntry
     ? (savedEntry.expiry_date || savedEntry.expiry)
-    : expiry_date;
+    : expiry_date);
   if (!canonicalExpiry) return false;
 
   // Always build local map first so copy-config works even if worker fails
