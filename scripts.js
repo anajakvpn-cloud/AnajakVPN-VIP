@@ -1035,7 +1035,10 @@ function backToMain() {
     scrollToTop();    
 }    
 
+let activeSubscriptionCategory = null;
+
 function showServers(category) {    
+    activeSubscriptionCategory = category;
     const list = allServers.filter(s => s.category === category);    
     document.getElementById('main-menu').classList.add('hidden');    
     document.getElementById('server-list-view').classList.remove('hidden');    
@@ -1154,8 +1157,9 @@ async function copySubscriptionUrl(categoryKey) {
 
 // Open the user's category subscription directly in a supported VPN client.
 function openSubscriptionInApp(appKey, categoryKey) {
+  if (!categoryKey) { showToast('Please open a server category first'); return; }
   const url = buildSubscriptionUrl(categoryKey);
-  if (!url) { showToast('សូមចូលគណនីជាមុនសិន'); return; }
+  if (!url) { showToast('Please sign in to import your subscription'); return; }
   const encoded = encodeURIComponent(url);
   const links = {
     v2box: `v2box://import?url=${encoded}`,
@@ -1539,21 +1543,13 @@ async function renderServerList(list) {
                                   <span style="width:6px;height:6px;border-radius:50%;background:#a78bfa;display:inline-block;flex-shrink:0;"></span>
                                   ${scrollingTitle}
                                 </div>
-                                <p class="text-xs text-gray-500">Tap an app icon to import subscription</p>
+                                <p class="text-xs text-gray-500">Choose a server below · import options are above</p>
                             </div>    
                         </div>    
                     </div>    
 
                     <div class="server-actions server-app-actions">
                         <span class="ping-result text-xs font-semibold text-emerald-400" data-ip="${serverIP || ''}">...</span>
-                        <div class="vpn-app-icons" aria-label="Import subscription into VPN app">
-                          <button type="button" class="vpn-app-icon" title="V2Box" aria-label="Import to V2Box" onclick="openSubscriptionInApp('v2box','${item.category || ''}')"><span class="app-mark v2box-mark">V2</span></button>
-                          <button type="button" class="vpn-app-icon" title="Happ" aria-label="Import to Happ" onclick="openSubscriptionInApp('happ','${item.category || ''}')"><span class="app-mark happ-mark">H</span></button>
-                          <button type="button" class="vpn-app-icon" title="Proxy Utility" aria-label="Import to Proxy Utility" onclick="openSubscriptionInApp('proxyutility','${item.category || ''}')"><span class="app-mark proxy-mark"><i class="fas fa-shield-alt"></i></span></button>
-                          <button type="button" class="vpn-app-icon" title="v2rayNG (Android)" aria-label="Import to v2rayNG" onclick="openSubscriptionInApp('v2rayng','${item.category || ''}')"><span class="app-mark v2rayng-mark">N</span></button>
-                          <button type="button" class="vpn-app-icon" title="NekoBox (Android)" aria-label="Import to NekoBox" onclick="openSubscriptionInApp('nekobox','${item.category || ''}')"><span class="app-mark neko-mark"><i class="fas fa-cat"></i></span></button>
-                          <button type="button" class="vpn-app-icon" title="V2RayTun" aria-label="Import to V2RayTun" onclick="openSubscriptionInApp('v2raytun','${item.category || ''}')"><span class="app-mark tun-mark"><i class="fas fa-bolt"></i></span></button>
-                        </div>
                     </div>
                 </div>    
             `;    
@@ -1591,6 +1587,7 @@ document.getElementById('search-input')?.addEventListener('input', e => {
         s.title.toLowerCase().includes(query) ||     
         (s.text && s.text.toLowerCase().includes(query))    
     );    
+    activeSubscriptionCategory = results.length && results.every(s => s.category === results[0].category) ? results[0].category : null;
 
     renderServerList(results);    
     hideMainHeaderElements();    
