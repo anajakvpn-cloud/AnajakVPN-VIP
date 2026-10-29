@@ -8,7 +8,10 @@ const SHARED_SUBDOMAIN_KEY = "viphxhxz"; // Fallback key only when no matching s
 // Select the first already-existing VIP code with the same expiry date.
 // This makes VIPAAA reuse VIPBBB's hostname when VIPBBB is the established
 // code for that expiry date, instead of generating a hostname from the login code.
+let verifiedHostKey = null; // set by the server (/verify-code) after login
+
 function getCanonicalHostnameKey(expiryDate) {
+  if (verifiedHostKey) return verifiedHostKey;
   const ymd = String(expiryDate || '').replace(/[^0-9]/g, '').slice(0, 8);
   if (ymd.length !== 8) return SHARED_SUBDOMAIN_KEY;
   const entries = Array.isArray(validCodes) ? validCodes : [];
@@ -118,77 +121,6 @@ function setRandomUserAvatar() {
     avatarEl.textContent = savedIcon;    
     avatarEl.className = `w-12 h-12 bg-gradient-to-br ${savedColor} rounded-full flex items-center justify-center shadow-lg text-2xl`;    
 }    
-
-// ================== DEVTOOLS DETECTION (2026 hardened version) ==================    
-const DevToolsDetector = (function() {    
-    let isOpen = false;    
-    let detectionScore = 0;    
-    const DETECTION_THRESHOLD = 2;    
-    let warningShown = false;    
-
-    let lastWidth = window.innerWidth;    
-    let lastHeight = window.innerHeight;    
-
-    function checkSizeDifference() {    
-        const wDiff = Math.abs(window.innerWidth - lastWidth);    
-        const hDiff = Math.abs(window.innerHeight - lastHeight);    
-
-        if ((wDiff > 280 && wDiff < 580) || (hDiff > 280 && hDiff < 580)) {    
-            detectionScore++;    
-        }    
-
-        lastWidth = window.innerWidth;    
-        lastHeight = window.innerHeight;    
-    }    
-
-    function timingAttack() {    
-        const start = performance.now();    
-        // eslint-disable-next-line no-debugger    
-        debugger;    
-        const duration = performance.now() - start;    
-
-        if (duration > 80) {    
-            detectionScore += 2;    
-        }    
-    }    
-
-    function consoleTrap() {    
-        const test = /./;    
-        let triggered = false;    
-
-        test.toString = function() {    
-            triggered = true;    
-            detectionScore++;    
-            return "[devtools-detected]";    
-        };    
-
-        console.log("%c", test);    
-        return triggered;    
-    }    
-
-    function updateDetection() {    
-        detectionScore = 0;    
-        checkSizeDifference();    
-        timingAttack();    
-        consoleTrap();    
-
-        const previouslyOpen = isOpen;    
-        isOpen = detectionScore >= DETECTION_THRESHOLD;    
-
-        if (isOpen && !previouslyOpen && !warningShown) {    
-            warningShown = true;    
-            // Silent protection - no UI warning    
-        }    
-    }    
-
-    setInterval(updateDetection, 700);    
-    window.addEventListener('resize', updateDetection);    
-    window.addEventListener('focus', updateDetection);    
-
-    return {    
-        isOpen: () => isOpen    
-    };    
-})();    
 
 // ================== FETCH LAST MODIFIED (via Worker) ==================    
 async function fetchJsonLastModified() {    
@@ -775,13 +707,6 @@ async function loadData(retryCount = 0) {
     // Short UX delay only (was 800ms — felt slow on every open)
     await new Promise(resolve => setTimeout(resolve, 200));
 
-    if (DevToolsDetector.isOpen()) {
-        console.warn("[Protection] DevTools detected → Blocking data load");
-        hideGlobalLoading();
-        if (loginView) loginView.classList.remove('hidden');
-        return;
-    }
-
     try {
         const data = await fetchVipDataOnce();
 
@@ -802,8 +727,8 @@ async function loadData(retryCount = 0) {
         await updateLastUpdateDate();
 
         // Data ready → hide overlay, then show login or auto-login
+        await attemptAutoLogin();
         hideGlobalLoading();
-        attemptAutoLogin();
 
         // If auto-login did not succeed, show login UI
         if (!currentUser && loginView) {
@@ -882,8 +807,38 @@ function logout(silent = false) {
     }, 400);
 }
 
-// ================== LOGIN SYSTEM ==================    
-function checkLoginCode() {    
+// ================== LOGIN SYSTEM ==================
+// ================== SERVER-SIDE CODE VERIFICATION ==================
+// The full VIP code list is never sent to the browser. The Worker checks one code
+// and returns only that code's data (+ server list) when it is valid.
+let lastVerifiedAt = 0;
+
+async function verifyCodeWithServer(code) {
+    const res = await fetch(`${WORKER_URL}/verify-code`, {
+        method: 'POST',
+        cache: 'no-store',
+        credentials: 'omit',
+        mode: 'cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code })
+    });
+    if (res.status === 403) return null;               // unknown or expired
+    if (!res.ok) throw new Error(`verify-code HTTP ${res.status}`);
+    const v = await res.json();
+    return v && v.valid ? v : null;
+}
+
+function applyVerifiedSession(v) {
+    validCodes = [{ code: v.code, expiry_date: v.expiry_date }];   // only the user's own entry
+    allServers = Array.isArray(v.allServers) ? v.allServers : [];
+    verifiedHostKey = v.hostKey || null;
+    lastVerifiedAt = Date.now();
+    renderMainMenu();
+}
+
+let loginInFlight = false;
+async function checkLoginCode() {
+    if (loginInFlight) return;    
     const input = document.getElementById('login-code').value.trim();    
     const code = normalizeCode(input);    
     const errorEl = document.getElementById('login-error');    
@@ -894,17 +849,22 @@ function checkLoginCode() {
         return;    
     }    
 
-    if (!validCodes.length) {
-        errorEl.textContent = 'ទិន្នន័យមិនទាន់ផ្ទុក – សូម refresh ទំព័រ';    
-        errorEl.classList.remove('hidden');    
-        // Try reload data in background
-        loadData();
+    let found = null;
+    loginInFlight = true;
+    try {
+        const v = await verifyCodeWithServer(code);
+        if (v) {
+            applyVerifiedSession(v);
+            found = { code: v.code, expiry_date: v.expiry_date };
+        }
+    } catch (e) {
+        console.warn('Code verification failed:', e);
+        errorEl.textContent = 'ទិន្នន័យមិនទាន់ផ្ទុក – សូម refresh ទំព័រ';
+        errorEl.classList.remove('hidden');
         return;
+    } finally {
+        loginInFlight = false;
     }
-
-    const found = validCodes.find(c => 
-        normalizeCode(c.code) === code && isCodeStillValid(c)
-    );    
 
     if (found) {    
         currentUser = { code: found.code, expiry: found.expiry_date };    
@@ -940,12 +900,23 @@ function checkLoginCode() {
 }    
 
 // ================== ATTEMPT AUTO LOGIN (UPDATED) ==================
-function attemptAutoLogin() {
+let autoLoginBusy = false;
+async function attemptAutoLogin() {
     const saved = localStorage.getItem('autoLoginData');
-    if (!saved) return;
+    if (!saved || autoLoginBusy) return;
+    autoLoginBusy = true;
 
     try {
-        const data = JSON.parse(saved);
+        let data;
+        try {
+            data = JSON.parse(saved);
+        } catch (e) {
+            console.warn("Auto-login failed (parse error):", e);
+            clearAppCache();
+            localStorage.removeItem('autoLoginData');
+            return;
+        }
+
         const now = Date.now();
 
         // Check if remember duration has expired
@@ -956,9 +927,28 @@ function attemptAutoLogin() {
         }
 
         const savedNorm = normalizeCode(data.code);
-        const found = validCodes.find(c =>
-            normalizeCode(c.code) === savedNorm && isCodeStillValid(c)
-        );
+        let found = null;
+
+        // Same session, verified recently: no need to hit the server on every tab focus
+        const fresh = currentUser && normalizeCode(currentUser.code) === savedNorm
+            && (Date.now() - lastVerifiedAt) < 5 * 60 * 1000;
+
+        if (fresh) {
+            const local = { code: currentUser.code, expiry_date: currentUser.expiry };
+            if (isCodeStillValid(local)) found = local;
+        } else {
+            try {
+                const v = await verifyCodeWithServer(savedNorm);
+                if (v) {
+                    applyVerifiedSession(v);
+                    found = { code: v.code, expiry_date: v.expiry_date };
+                }
+            } catch (e) {
+                // Network problem: keep the saved login, just show the login screen for now
+                console.warn('Auto-login verification failed (network):', e);
+                return;
+            }
+        }
 
         if (found) {
             // Successful auto-login
@@ -997,11 +987,8 @@ function attemptAutoLogin() {
             clearAppCache();
             localStorage.removeItem('autoLoginData');
         }
-    } 
-    catch (e) {
-        console.warn("Auto-login failed (parse error):", e);
-        clearAppCache();
-        localStorage.removeItem('autoLoginData');
+    } finally {
+        autoLoginBusy = false;
     }
 }
 // ================== WARNING MODAL ==================    
